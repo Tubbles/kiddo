@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "audio.h"
 #include "collision.h"
 #include "input.h"
 #include "particle.h"
@@ -39,6 +40,7 @@ int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Kiddo");
     SetTargetFPS(60);
+    audio_init();
 
     PlayerState players[MAX_PLAYERS];
     for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -62,9 +64,11 @@ int main(void)
                 InputState input = input_read(i);
                 players[i] = player_update(players[i], input, dt);
 
-                if (any_button_pressed(&input))
+                if (any_button_pressed(&input)) {
                     particles_spawn(&particles, players[i].position,
                                     players[i].color, 15);
+                    audio_play(SOUND_BUTTON);
+                }
             } else {
                 players[i].active = false;
             }
@@ -73,8 +77,10 @@ int main(void)
         CollisionEvent collisions[MAX_COLLISIONS];
         int collision_count = collision_detect(players, MAX_PLAYERS,
                                                collisions, MAX_COLLISIONS);
-        for (int i = 0; i < collision_count; i++)
+        for (int i = 0; i < collision_count; i++) {
             particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
+            audio_play(SOUND_COLLISION);
+        }
 
         particles_update(&particles, dt);
 
@@ -93,6 +99,7 @@ int main(void)
     }
 
     particles_free(&particles);
+    audio_shutdown();
     CloseWindow();
     return 0;
 }
