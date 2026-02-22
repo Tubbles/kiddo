@@ -13,6 +13,7 @@ add_executable(kiddo
     src/input.c
     src/player.c
     src/particle.c
+    src/collision.c
 )
 target_link_libraries(kiddo PRIVATE raylib)
 

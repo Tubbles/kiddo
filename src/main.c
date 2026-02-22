@@ -1,4 +1,5 @@
 #include "raylib.h"
+#include "collision.h"
 #include "input.h"
 #include "particle.h"
 #include "player.h"
@@ -68,6 +69,12 @@ int main(void)
                 players[i].active = false;
             }
         }
+
+        CollisionEvent collisions[MAX_COLLISIONS];
+        int collision_count = collision_detect(players, MAX_PLAYERS,
+                                               collisions, MAX_COLLISIONS);
+        for (int i = 0; i < collision_count; i++)
+            particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
 
         particles_update(&particles, dt);
 

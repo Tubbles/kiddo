@@ -30,6 +30,14 @@ void test_particle_position_updates(void);
 void test_particle_capacity_grows(void);
 void test_particle_free_cleans_up(void);
 
+/* test_collision.c */
+void test_shape_overlap_touching(void);
+void test_shape_overlap_apart(void);
+void test_shape_overlap_same_position(void);
+void test_collision_detect_no_overlap(void);
+void test_collision_detect_overlapping(void);
+void test_collision_detect_skips_inactive(void);
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -56,6 +64,13 @@ int main(void)
     RUN_TEST(test_particle_position_updates);
     RUN_TEST(test_particle_capacity_grows);
     RUN_TEST(test_particle_free_cleans_up);
+
+    RUN_TEST(test_shape_overlap_touching);
+    RUN_TEST(test_shape_overlap_apart);
+    RUN_TEST(test_shape_overlap_same_position);
+    RUN_TEST(test_collision_detect_no_overlap);
+    RUN_TEST(test_collision_detect_overlapping);
+    RUN_TEST(test_collision_detect_skips_inactive);
 
     return UNITY_END();
 }
