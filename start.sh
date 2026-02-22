@@ -8,7 +8,7 @@ git pull || true
 install_deps() {
     if command -v pacman &>/dev/null; then
         sudo pacman -S --needed --noconfirm \
-            base-devel cmake ninja pkgconf mesa \
+            python-pip base-devel cmake ninja pkgconf mesa \
             libx11 libxcb libxrandr libxinerama libxcursor libxi \
             libxext libxfixes libxrender libxcomposite libxdamage \
             libxxf86vm libxkbfile libxmu libxpm libxt libxtst libxv \
@@ -36,6 +36,8 @@ install_deps() {
 }
 
 install_deps || true
+
+command -v conan &>/dev/null || pip install --user conan
 
 conan install . --output-folder=build --build=missing
 conan build .
