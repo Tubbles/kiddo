@@ -6,6 +6,8 @@
 #include "player.h"
 #include "render.h"
 
+#include <stdio.h>
+
 int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
 
@@ -80,8 +82,37 @@ int main(void)
     ParticlePool particles;
     particles_init(&particles);
 
+    int frame = 0;
+    float elapsed = 0.0f;
+    int prev_gamepads = -1;
+
+    fprintf(stderr, "LOG: entering game loop\n");
+    fflush(stderr);
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        frame++;
+        elapsed += dt;
+
+        /* Heartbeat every ~5 seconds */
+        if (frame % 300 == 0) {
+            int active = 0;
+            for (int i = 0; i < MAX_PLAYERS; i++)
+                if (players[i].active) active++;
+            fprintf(stderr, "LOG: frame=%d t=%.1fs dt=%.4f fps=%d "
+                    "players=%d particles=%d\n",
+                    frame, elapsed, dt, GetFPS(), active, particles.count);
+            fflush(stderr);
+        }
+
+        /* Log gamepad connect/disconnect */
+        int gamepads = input_count_gamepads();
+        if (gamepads != prev_gamepads) {
+            fprintf(stderr, "LOG: gamepads %d -> %d (frame=%d)\n",
+                    prev_gamepads, gamepads, frame);
+            fflush(stderr);
+            prev_gamepads = gamepads;
+        }
 
         /* Exit on Start+Select from any gamepad */
         for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -148,8 +179,12 @@ int main(void)
     }
 
 quit:
+    fprintf(stderr, "LOG: exiting game loop (frame=%d t=%.1fs)\n", frame, elapsed);
+    fflush(stderr);
     particles_free(&particles);
     audio_shutdown();
     CloseWindow();
+    fprintf(stderr, "LOG: shutdown complete\n");
+    fflush(stderr);
     return 0;
 }
