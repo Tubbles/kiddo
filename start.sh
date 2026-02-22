@@ -35,7 +35,10 @@ install_deps() {
     fi
 }
 
-install_deps || true
+# Only attempt install if we have a tty (skip when launched from GUI)
+if [ -t 0 ]; then
+    install_deps || true
+fi
 
 # Set up Python venv for conan
 VENV_DIR="$(pwd)/.venv"
