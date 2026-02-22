@@ -35,7 +35,7 @@ install_deps() {
     fi
 }
 
-install_deps
+install_deps || true
 
 conan install . --output-folder=build --build=missing
 conan build .
