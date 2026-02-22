@@ -11,8 +11,11 @@
 #define PLAYER_SCALE_MIN 0.5f
 #define PLAYER_SCALE_MAX 3.0f
 #define PLAYER_SCALE_SPEED 2.0f
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH_DEFAULT 800
+#define SCREEN_HEIGHT_DEFAULT 600
+
+extern int screen_width;
+extern int screen_height;
 
 typedef struct {
     bool active;

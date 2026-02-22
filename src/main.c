@@ -6,6 +6,9 @@
 #include "player.h"
 #include "render.h"
 
+int screen_width = SCREEN_WIDTH_DEFAULT;
+int screen_height = SCREEN_HEIGHT_DEFAULT;
+
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     {230, 41, 55, 255},   /* RED */
     {0, 121, 241, 255},   /* BLUE */
@@ -22,8 +25,8 @@ static const ShapeKind PLAYER_SHAPES[MAX_PLAYERS] = {
 
 static Vector2 player_start_pos(int index)
 {
-    float quarter_w = SCREEN_WIDTH / 4.0f;
-    float half_h = SCREEN_HEIGHT / 2.0f;
+    float quarter_w = screen_width / 4.0f;
+    float half_h = screen_height / 2.0f;
     return (Vector2){quarter_w * (index * 2 + 1) * 0.5f, half_h};
 }
 
@@ -36,9 +39,31 @@ static bool any_button_pressed(const InputState *input)
     return false;
 }
 
+static InputState merge_input(InputState a, InputState b)
+{
+    InputState out = a;
+    if (b.left_stick.x != 0.0f) out.left_stick.x = b.left_stick.x;
+    if (b.left_stick.y != 0.0f) out.left_stick.y = b.left_stick.y;
+    if (b.right_stick.x != 0.0f) out.right_stick.x = b.right_stick.x;
+    if (b.right_stick.y != 0.0f) out.right_stick.y = b.right_stick.y;
+    for (int i = 0; i < 4; i++)
+        out.buttons[i] = a.buttons[i] || b.buttons[i];
+    if (b.left_trigger > a.left_trigger) out.left_trigger = b.left_trigger;
+    if (b.right_trigger > a.right_trigger) out.right_trigger = b.right_trigger;
+    return out;
+}
+
 int main(void)
 {
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Kiddo");
+    SetConfigFlags(FLAG_FULLSCREEN_MODE);
+    int monitor = GetCurrentMonitor();
+    screen_width = GetMonitorWidth(monitor);
+    screen_height = GetMonitorHeight(monitor);
+    if (screen_width <= 0 || screen_height <= 0) {
+        screen_width = SCREEN_WIDTH_DEFAULT;
+        screen_height = SCREEN_HEIGHT_DEFAULT;
+    }
+    InitWindow(screen_width, screen_height, "Kiddo");
     SetTargetFPS(60);
     audio_init();
 
@@ -49,6 +74,9 @@ int main(void)
         players[i].active = false;
     }
 
+    /* Player 0 always active (keyboard fallback) */
+    players[0].active = true;
+
     ParticlePool particles;
     particles_init(&particles);
 
@@ -56,7 +84,22 @@ int main(void)
         float dt = GetFrameTime();
 
         for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (IsGamepadAvailable(i)) {
+            bool gamepad_connected = IsGamepadAvailable(i);
+
+            if (i == 0) {
+                /* Player 0: keyboard always, gamepad merged if available */
+                InputState kb = input_read_keyboard();
+                InputState input = gamepad_connected
+                    ? merge_input(input_read(0), kb)
+                    : kb;
+                players[0] = player_update(players[0], input, dt);
+
+                if (any_button_pressed(&input)) {
+                    particles_spawn(&particles, players[0].position,
+                                    players[0].color, 15);
+                    audio_play(SOUND_BUTTON);
+                }
+            } else if (gamepad_connected) {
                 if (!players[i].active) {
                     players[i] = player_init(i, player_start_pos(i),
                                              PLAYER_SHAPES[i], PLAYER_COLORS[i]);

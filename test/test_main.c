@@ -1,4 +1,8 @@
 #include "unity.h"
+#include "player.h"
+
+int screen_width = SCREEN_WIDTH_DEFAULT;
+int screen_height = SCREEN_HEIGHT_DEFAULT;
 
 void setUp(void) {}
 void tearDown(void) {}
