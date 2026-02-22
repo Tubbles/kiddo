@@ -8,7 +8,7 @@ git pull || true
 install_deps() {
     if command -v pacman &>/dev/null; then
         sudo pacman -S --needed --noconfirm \
-            python-pip base-devel cmake ninja pkgconf mesa \
+            python base-devel cmake ninja pkgconf mesa \
             libx11 libxcb libxrandr libxinerama libxcursor libxi \
             libxext libxfixes libxrender libxcomposite libxdamage \
             libxxf86vm libxkbfile libxmu libxpm libxt libxtst libxv \
@@ -37,7 +37,14 @@ install_deps() {
 
 install_deps || true
 
-command -v conan &>/dev/null || pip install --user conan
+# Set up Python venv for conan
+VENV_DIR="$(pwd)/.venv"
+if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv "$VENV_DIR"
+fi
+source "$VENV_DIR/bin/activate"
+
+command -v conan &>/dev/null || pip install conan
 
 conan install . --output-folder=build --build=missing
 conan build .
