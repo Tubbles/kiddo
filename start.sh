@@ -55,12 +55,20 @@ needs_build() {
 }
 
 if needs_build; then
+    # Prefer docker, fall back to podman, then native build
+    CONTAINER_CMD=""
     if command -v docker &>/dev/null; then
-        echo "Building with Docker..."
+        CONTAINER_CMD=docker
+    elif command -v podman &>/dev/null; then
+        CONTAINER_CMD=podman
+    fi
+
+    if [ -n "$CONTAINER_CMD" ]; then
+        echo "Building with $CONTAINER_CMD..."
         mkdir -p build/Release
-        docker build --output=build/Release .
+        $CONTAINER_CMD build --output=build/Release .
     else
-        echo "Docker not found, building natively with conan..."
+        echo "No container runtime found, building natively with conan..."
 
         # Install system dependencies if missing (only with a tty)
         if [ -t 0 ]; then
