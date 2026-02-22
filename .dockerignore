@@ -1,0 +1,6 @@
+build/
+.venv/
+tmp/
+.git/
+.claude/
+*.log

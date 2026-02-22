@@ -45,33 +45,41 @@ install_deps() {
     fi
 }
 
-# Only attempt install if we have a tty (skip when launched from GUI)
-if [ -t 0 ]; then
-    install_deps || true
-fi
-
 # Only build if binary is missing or sources are newer
 needs_build() {
     [ ! -f ./build/Release/kiddo ] && return 0
-    for f in src/*.c src/*.h CMakeLists.txt conanfile.py; do
+    for f in src/*.c src/*.h CMakeLists.txt conanfile.py Dockerfile; do
         [ "$f" -nt ./build/Release/kiddo ] && return 0
     done
     return 1
 }
 
 if needs_build; then
-    # Set up Python venv for conan
-    VENV_DIR="$(pwd)/.venv"
-    if [ ! -d "$VENV_DIR" ]; then
-        python3 -m venv "$VENV_DIR"
+    if command -v docker &>/dev/null; then
+        echo "Building with Docker..."
+        mkdir -p build/Release
+        docker build --output=build/Release .
+    else
+        echo "Docker not found, building natively with conan..."
+
+        # Install system dependencies if missing (only with a tty)
+        if [ -t 0 ]; then
+            install_deps || true
+        fi
+
+        # Set up Python venv for conan
+        VENV_DIR="$(pwd)/.venv"
+        if [ ! -d "$VENV_DIR" ]; then
+            python3 -m venv "$VENV_DIR"
+        fi
+        source "$VENV_DIR/bin/activate"
+
+        command -v conan &>/dev/null || pip install conan
+        conan profile path default &>/dev/null || conan profile detect
+
+        conan install . --output-folder=build --build=missing
+        conan build .
     fi
-    source "$VENV_DIR/bin/activate"
-
-    command -v conan &>/dev/null || pip install conan
-    conan profile path default &>/dev/null || conan profile detect
-
-    conan install . --output-folder=build --build=missing
-    conan build .
 fi
 
 exec ./build/Release/kiddo
