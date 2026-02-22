@@ -83,6 +83,12 @@ int main(void)
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
 
+        /* Exit on Start+Select from any gamepad */
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (input_exit_requested(i))
+                goto quit;
+        }
+
         for (int i = 0; i < MAX_PLAYERS; i++) {
             bool gamepad_connected = IsGamepadAvailable(i);
 
@@ -141,6 +147,7 @@ int main(void)
         EndDrawing();
     }
 
+quit:
     particles_free(&particles);
     audio_shutdown();
     CloseWindow();

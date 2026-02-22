@@ -15,5 +15,6 @@ typedef struct {
 InputState input_read(int gamepad_id);
 InputState input_read_keyboard(void);
 int input_count_gamepads(void);
+bool input_exit_requested(int gamepad_id);
 
 #endif
