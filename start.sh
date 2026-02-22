@@ -45,17 +45,28 @@ if [ -t 0 ]; then
     install_deps || true
 fi
 
-# Set up Python venv for conan
-VENV_DIR="$(pwd)/.venv"
-if [ ! -d "$VENV_DIR" ]; then
-    python3 -m venv "$VENV_DIR"
+# Only build if binary is missing or sources are newer
+needs_build() {
+    [ ! -f ./build/Release/kiddo ] && return 0
+    for f in src/*.c src/*.h CMakeLists.txt conanfile.py; do
+        [ "$f" -nt ./build/Release/kiddo ] && return 0
+    done
+    return 1
+}
+
+if needs_build; then
+    # Set up Python venv for conan
+    VENV_DIR="$(pwd)/.venv"
+    if [ ! -d "$VENV_DIR" ]; then
+        python3 -m venv "$VENV_DIR"
+    fi
+    source "$VENV_DIR/bin/activate"
+
+    command -v conan &>/dev/null || pip install conan
+    conan profile path default &>/dev/null || conan profile detect
+
+    conan install . --output-folder=build --build=missing
+    conan build .
 fi
-source "$VENV_DIR/bin/activate"
-
-command -v conan &>/dev/null || pip install conan
-conan profile path default &>/dev/null || conan profile detect
-
-conan install . --output-folder=build --build=missing
-conan build .
 
 exec ./build/Release/kiddo
