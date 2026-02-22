@@ -22,6 +22,14 @@ void test_player_button_changes_color(void);
 void test_player_button_changes_shape(void);
 void test_player_no_input_no_change(void);
 
+/* test_particle.c */
+void test_particle_init(void);
+void test_particle_spawn_increases_count(void);
+void test_particle_lifetime_expiry(void);
+void test_particle_position_updates(void);
+void test_particle_capacity_grows(void);
+void test_particle_free_cleans_up(void);
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -41,6 +49,13 @@ int main(void)
     RUN_TEST(test_player_button_changes_color);
     RUN_TEST(test_player_button_changes_shape);
     RUN_TEST(test_player_no_input_no_change);
+
+    RUN_TEST(test_particle_init);
+    RUN_TEST(test_particle_spawn_increases_count);
+    RUN_TEST(test_particle_lifetime_expiry);
+    RUN_TEST(test_particle_position_updates);
+    RUN_TEST(test_particle_capacity_grows);
+    RUN_TEST(test_particle_free_cleans_up);
 
     return UNITY_END();
 }

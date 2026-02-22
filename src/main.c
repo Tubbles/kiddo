@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include "input.h"
+#include "particle.h"
 #include "player.h"
 #include "render.h"
 
@@ -24,6 +25,15 @@ static Vector2 player_start_pos(int index)
     return (Vector2){quarter_w * (index * 2 + 1) * 0.5f, half_h};
 }
 
+static bool any_button_pressed(const InputState *input)
+{
+    for (int i = 0; i < 4; i++) {
+        if (input->buttons[i])
+            return true;
+    }
+    return false;
+}
+
 int main(void)
 {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Kiddo");
@@ -36,6 +46,9 @@ int main(void)
         players[i].active = false;
     }
 
+    ParticlePool particles;
+    particles_init(&particles);
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
 
@@ -47,25 +60,32 @@ int main(void)
                 }
                 InputState input = input_read(i);
                 players[i] = player_update(players[i], input, dt);
+
+                if (any_button_pressed(&input))
+                    particles_spawn(&particles, players[i].position,
+                                    players[i].color, 15);
             } else {
                 players[i].active = false;
             }
         }
 
+        particles_update(&particles, dt);
+
         BeginDrawing();
         render_background();
 
         for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (players[i].active) {
+            if (players[i].active)
                 render_shape(players[i].shape, players[i].position,
                              players[i].rotation, players[i].scale,
                              players[i].color);
-            }
         }
 
+        render_particles(particles.items, particles.count);
         EndDrawing();
     }
 
+    particles_free(&particles);
     CloseWindow();
     return 0;
 }

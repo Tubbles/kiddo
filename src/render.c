@@ -72,3 +72,14 @@ void render_shape(ShapeKind kind, Vector2 pos, float rotation, float scale, Colo
         break;
     }
 }
+
+void render_particles(const Particle *particles, int count)
+{
+    for (int i = 0; i < count; i++) {
+        const Particle *p = &particles[i];
+        unsigned char alpha = (unsigned char)(255.0f * (p->lifetime / 1.5f));
+        if (alpha > 255) alpha = 255;
+        Color c = {p->color.r, p->color.g, p->color.b, alpha};
+        DrawCircleV(p->position, p->size, c);
+    }
+}
