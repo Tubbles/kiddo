@@ -2,17 +2,19 @@
 set -e
 cd "$(dirname "$0")"
 
-LOGFILE="$(pwd)/tmp/start.log"
-mkdir -p "$(pwd)/tmp"
-exec > >(tee -a "$LOGFILE") 2>&1
-echo "=== start.sh $(date) ==="
-
-# Re-exec self after pull so we always run the latest version
+# Re-exec self after pull so we always run the latest version.
+# This must happen before the tee redirect — process substitution
+# with exec causes a forked duplicate when combined with re-exec.
 if [ -z "$KIDDO_REEXECED" ]; then
     export KIDDO_REEXECED=1
     git pull || true
     exec "$0" "$@"
 fi
+
+LOGFILE="$(pwd)/tmp/start.log"
+mkdir -p "$(pwd)/tmp"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "=== start.sh $(date) ==="
 
 # Install system dependencies if missing
 install_deps() {
