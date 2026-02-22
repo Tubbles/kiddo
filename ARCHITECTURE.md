@@ -178,10 +178,10 @@ conan install . --output-folder=build --build=missing
 conan build .
 
 # Run
-./build/kiddo
+./build/Release/kiddo
 
 # Run tests
-./build/test/kiddo_tests
+./build/Release/test/kiddo_tests
 ```
 
 ## Testing Strategy
