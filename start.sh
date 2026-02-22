@@ -2,6 +2,11 @@
 set -e
 cd "$(dirname "$0")"
 
+LOGFILE="$(pwd)/tmp/start.log"
+mkdir -p "$(pwd)/tmp"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "=== start.sh $(date) ==="
+
 git pull || true
 
 # Install system dependencies if missing
