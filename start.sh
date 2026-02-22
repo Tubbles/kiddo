@@ -45,6 +45,7 @@ fi
 source "$VENV_DIR/bin/activate"
 
 command -v conan &>/dev/null || pip install conan
+conan profile path default &>/dev/null || conan profile detect
 
 conan install . --output-folder=build --build=missing
 conan build .
