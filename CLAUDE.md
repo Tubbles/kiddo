@@ -31,7 +31,7 @@ conan build .
 
 ## Coding Style
 
-- **No OOP patterns.** This is C — think plain structs and functions. No function pointers for polymorphism unless strictly necessary.
+- **No OOP patterns.** This is C — think plain structs and functions.
 - **Small, focused functions.** Aim for 5-10 lines per function. Extract logic into named helpers rather than writing long functions.
 - **Pure functions where possible.** Functions should take inputs, return outputs, and avoid side effects. Side effects (I/O, rendering, audio) should be pushed to the edges — thin wrapper functions that call pure logic.
 - **Data-oriented design.** Game state is plain structs. Logic operates on that data. Data flow is one-directional: input -> state -> render.
