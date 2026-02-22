@@ -8,7 +8,7 @@ git pull || true
 install_deps() {
     if command -v pacman &>/dev/null; then
         sudo pacman -S --needed --noconfirm \
-            python base-devel cmake ninja pkgconf mesa \
+            python python-virtualenv base-devel cmake ninja pkgconf mesa \
             libx11 libxcb libxrandr libxinerama libxcursor libxi \
             libxext libxfixes libxrender libxcomposite libxdamage \
             libxxf86vm libxkbfile libxmu libxpm libxt libxtst libxv \
@@ -18,7 +18,7 @@ install_deps() {
             util-linux-libs
     elif command -v apt-get &>/dev/null; then
         sudo apt-get install -y \
-            build-essential cmake ninja-build pkg-config libgl-dev \
+            python3-venv build-essential cmake ninja-build pkg-config libgl-dev \
             libx11-dev libx11-xcb-dev libfontenc-dev libice-dev libsm-dev \
             libxaw7-dev libxcomposite-dev libxcursor-dev libxdamage-dev \
             libxext-dev libxfixes-dev libxi-dev libxinerama-dev \
