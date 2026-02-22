@@ -7,7 +7,12 @@ mkdir -p "$(pwd)/tmp"
 exec > >(tee -a "$LOGFILE") 2>&1
 echo "=== start.sh $(date) ==="
 
-git pull || true
+# Re-exec self after pull so we always run the latest version
+if [ -z "$KIDDO_REEXECED" ]; then
+    export KIDDO_REEXECED=1
+    git pull || true
+    exec "$0" "$@"
+fi
 
 # Install system dependencies if missing
 install_deps() {
