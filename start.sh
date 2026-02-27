@@ -8,7 +8,7 @@ cd "$(dirname "$0")"
 if [ -z "$KIDDO_REEXECED" ]; then
     export KIDDO_REEXECED=1
     git pull || true
-    exec "$0" "$@"
+    exec "./start.sh" "$@"
 fi
 
 LOGFILE="$(pwd)/tmp/start.log"
