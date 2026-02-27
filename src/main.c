@@ -62,11 +62,18 @@ int main(void)
     HideCursor();
 
     int monitor = GetCurrentMonitor();
-    screen_width = GetMonitorWidth(monitor);
-    screen_height = GetMonitorHeight(monitor);
-    if (screen_width > 0 && screen_height > 0) {
+    int mon_w = GetMonitorWidth(monitor);
+    int mon_h = GetMonitorHeight(monitor);
+    fprintf(stderr, "LOG: monitor=%d resolution=%dx%d\n", monitor, mon_w, mon_h);
+    fflush(stderr);
+    if (mon_w > 0 && mon_h > 0) {
+        screen_width = mon_w;
+        screen_height = mon_h;
         SetWindowSize(screen_width, screen_height);
     }
+    fprintf(stderr, "LOG: screen_width=%d screen_height=%d\n",
+            screen_width, screen_height);
+    fflush(stderr);
 
     input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
