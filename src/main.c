@@ -57,8 +57,6 @@ static InputState merge_input(InputState a, InputState b)
 
 int main(void)
 {
-    input_load_mappings("assets/gamecontrollerdb.txt");
-
     SetConfigFlags(FLAG_FULLSCREEN_MODE);
     int monitor = GetCurrentMonitor();
     screen_width = GetMonitorWidth(monitor);
@@ -68,6 +66,7 @@ int main(void)
         screen_height = SCREEN_HEIGHT_DEFAULT;
     }
     InitWindow(screen_width, screen_height, "Kiddo");
+    input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
     audio_init();
 
