@@ -1,5 +1,39 @@
 #include "input.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+void input_load_mappings(const char *path)
+{
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        fprintf(stderr, "WARN: could not open gamepad mappings: %s\n", path);
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *buf = malloc(len + 1);
+    if (!buf) {
+        fprintf(stderr, "WARN: could not allocate %ld bytes for mappings\n", len);
+        fclose(f);
+        return;
+    }
+
+    size_t read = fread(buf, 1, len, f);
+    fclose(f);
+    buf[read] = '\0';
+
+    int result = SetGamepadMappings(buf);
+    fprintf(stderr, "LOG: loaded gamepad mappings from %s (%ld bytes, result=%d)\n",
+            path, len, result);
+    fflush(stderr);
+
+    free(buf);
+}
+
 InputState input_read(int gamepad_id)
 {
     InputState state = {0};

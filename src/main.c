@@ -57,6 +57,8 @@ static InputState merge_input(InputState a, InputState b)
 
 int main(void)
 {
+    input_load_mappings("assets/gamecontrollerdb.txt");
+
     SetConfigFlags(FLAG_FULLSCREEN_MODE);
     int monitor = GetCurrentMonitor();
     screen_width = GetMonitorWidth(monitor);
@@ -110,6 +112,11 @@ int main(void)
         if (gamepads != prev_gamepads) {
             fprintf(stderr, "LOG: gamepads %d -> %d (frame=%d)\n",
                     prev_gamepads, gamepads, frame);
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (IsGamepadAvailable(i))
+                    fprintf(stderr, "LOG: gamepad %d: %s\n",
+                            i, GetGamepadName(i));
+            }
             fflush(stderr);
             prev_gamepads = gamepads;
         }
