@@ -104,6 +104,18 @@ int main(void)
             fprintf(stderr, "LOG: frame=%d t=%.1fs dt=%.4f fps=%d "
                     "players=%d particles=%d\n",
                     frame, elapsed, dt, GetFPS(), active, particles.count);
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (IsGamepadAvailable(i)) {
+                    fprintf(stderr, "LOG: gp%d axes: LX=%.2f LY=%.2f "
+                            "RX=%.2f RY=%.2f LT=%.2f RT=%.2f\n", i,
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_X),
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_Y),
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_X),
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_Y),
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_LEFT_TRIGGER),
+                            GetGamepadAxisMovement(i, GAMEPAD_AXIS_RIGHT_TRIGGER));
+                }
+            }
             fflush(stderr);
         }
 
