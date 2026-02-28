@@ -1,10 +1,13 @@
 #include "render.h"
+#include "player.h"
 #include "raymath.h"
 #include <math.h>
 
 void render_background(void)
 {
-    ClearBackground((Color){245, 245, 220, 255});
+    ClearBackground(BLACK);
+    Rectangle arena = {20, 20, screen_width - 40, screen_height - 40};
+    DrawRectangleRounded(arena, 0.05f, 16, (Color){245, 245, 220, 255});
 }
 
 static void draw_star(Vector2 pos, float size, float rotation, Color color)
