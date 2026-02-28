@@ -50,10 +50,10 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
     MODE_COLOR_MATCH,
 };
 
-#define PARKING_LOT_W 120.0f
-#define PARKING_LOT_H 80.0f
-#define PARKING_LOT_MARGIN 100.0f
-#define CAR_SIZE 60.0f
+#define PARKING_LOT_W 200.0f
+#define PARKING_LOT_H 140.0f
+#define PARKING_LOT_MARGIN 120.0f
+#define CAR_SIZE 100.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     {230, 41, 55, 255},   /* RED */
@@ -449,16 +449,16 @@ int main(void)
 
             if (game_mode == MODE_PARK) {
                 /* Draw parking lot */
-                DrawRectangleLinesEx(parking_lot, 4, GREEN);
+                DrawRectangleRec(parking_lot, GRAY);
                 Vector2 p_center = {
                     parking_lot.x + parking_lot.width / 2,
                     parking_lot.y + parking_lot.height / 2
                 };
-                Vector2 p_sz = MeasureTextEx(font, "P", 50.0f, 1);
+                Vector2 p_sz = MeasureTextEx(font, "P", 80.0f, 1);
                 DrawTextEx(font, "P",
                            (Vector2){p_center.x - p_sz.x / 2,
                                      p_center.y - p_sz.y / 2},
-                           50.0f, 1, GREEN);
+                           80.0f, 1, WHITE);
 
                 /* Draw cars */
                 float car_scale = CAR_SIZE / (float)car_tex.width;
