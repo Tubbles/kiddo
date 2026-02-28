@@ -234,12 +234,12 @@ static void resolve_wall_collision(PlayerState *player, float angle_deg,
     player->position.y += push_axis.y * min_overlap;
 }
 
-static void resolve_arena_collision(PlayerState *player)
+static void resolve_arena_collision(PlayerState *player, float margin)
 {
-    float left   = ARENA_PAD;
-    float right  = screen_width - ARENA_PAD;
-    float top    = ARENA_PAD;
-    float bottom = screen_height - ARENA_PAD;
+    float left   = ARENA_PAD + margin;
+    float right  = screen_width - ARENA_PAD - margin;
+    float top    = ARENA_PAD + margin;
+    float bottom = screen_height - ARENA_PAD - margin;
     float r      = ARENA_RADIUS;
 
     /* Straight edges */
@@ -253,16 +253,17 @@ static void resolve_arena_collision(PlayerState *player)
         player->position.y = bottom;
 
     /* Corner arcs */
-    Vector2 corners[4] = {
-        {left + r,  top + r},
-        {right - r, top + r},
-        {left + r,  bottom - r},
-        {right - r, bottom - r},
+    Vector2 corner_centers[4] = {
+        {ARENA_PAD + r,                    ARENA_PAD + r},
+        {screen_width - ARENA_PAD - r,     ARENA_PAD + r},
+        {ARENA_PAD + r,                    screen_height - ARENA_PAD - r},
+        {screen_width - ARENA_PAD - r,     screen_height - ARENA_PAD - r},
     };
-    float allowed = r;
+    float allowed = r - margin;
+    if (allowed < 0) allowed = 0;
     for (int i = 0; i < 4; i++) {
-        float dx = player->position.x - corners[i].x;
-        float dy = player->position.y - corners[i].y;
+        float dx = player->position.x - corner_centers[i].x;
+        float dy = player->position.y - corner_centers[i].y;
         /* Only check if we're actually in the corner quadrant */
         bool in_corner = false;
         if (i == 0) in_corner = dx < 0 && dy < 0;
@@ -273,9 +274,9 @@ static void resolve_arena_collision(PlayerState *player)
 
         float dist = sqrtf(dx * dx + dy * dy);
         if (dist > allowed && dist > 0.001f) {
-            float scale = allowed / dist;
-            player->position.x = corners[i].x + dx * scale;
-            player->position.y = corners[i].y + dy * scale;
+            float s = allowed / dist;
+            player->position.x = corner_centers[i].x + dx * s;
+            player->position.y = corner_centers[i].y + dy * s;
         }
     }
 }
@@ -550,8 +551,11 @@ int main(void)
 
             /* Arena boundary collision (all modes) */
             for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (players[i].active)
-                    resolve_arena_collision(&players[i]);
+                if (!players[i].active) continue;
+                float margin = (game_mode == MODE_PARK)
+                    ? CAR_HALF_H
+                    : SHAPE_BASE_SIZE * players[i].scale;
+                resolve_arena_collision(&players[i], margin);
             }
 
             if (game_mode == MODE_FREE_PLAY) {
@@ -593,8 +597,13 @@ int main(void)
                         resolve_wall_collision(&players[i], car_angles[i],
                                                walls[w]);
 
-                    /* Check parking */
-                    if (CheckCollisionPointRec(players[i].position, parking_lot)) {
+                    /* Check parking — car OBB overlaps parking lot */
+                    Rectangle car_aabb = {
+                        players[i].position.x - CAR_HALF_W,
+                        players[i].position.y - CAR_HALF_H,
+                        CAR_HALF_W * 2, CAR_HALF_H * 2
+                    };
+                    if (CheckCollisionRecs(car_aabb, parking_lot)) {
                         Vector2 lot_center = {
                             parking_lot.x + parking_lot.width / 2,
                             parking_lot.y + parking_lot.height / 2
@@ -700,8 +709,8 @@ int main(void)
                 }
 
                 /* Compute left panel height */
-                float dbg_size = 16.0f;
-                float gp_size = 20.0f;
+                float dbg_size = 22.0f;
+                float gp_size = 26.0f;
                 float left_h = 0;
                 float left_w = 0;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
@@ -717,20 +726,20 @@ int main(void)
                             players[i].position.x, players[i].position.y);
                     Vector2 sz = MeasureTextEx(font, txt, dbg_size, 1);
                     if (sz.x > left_w) left_w = sz.x;
-                    left_h += 20;
+                    left_h += 26;
                 }
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!IsGamepadAvailable(i)) continue;
-                    left_h += 48;
+                    left_h += 62;
                     /* Approximate width from gp_size lines */
                     Vector2 sz = MeasureTextEx(font, "gp0 stick=-1.00,-1.00 rstick=-1.00,-1.00", gp_size, 1);
                     if (sz.x > left_w) left_w = sz.x;
                 }
 
                 /* Compute log ring width */
-                float log_size = 16.0f;
+                float log_size = 20.0f;
                 float log_w = 0;
-                float log_h = log_ring_count * 20.0f;
+                float log_h = log_ring_count * 24.0f;
                 int start = (log_ring_count < LOG_RING_SIZE)
                     ? 0 : log_ring_head;
                 for (int i = 0; i < log_ring_count; i++) {
@@ -765,7 +774,7 @@ int main(void)
                             players[i].color.b, players[i].color.a,
                             players[i].position.x, players[i].position.y);
                     DrawTextEx(font, txt, (Vector2){10, y}, dbg_size, 1, BLACK);
-                    y += 20;
+                    y += 26;
                 }
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!IsGamepadAvailable(i)) continue;
@@ -780,14 +789,14 @@ int main(void)
                             GetGamepadAxisMovement(i, 2),
                             GetGamepadAxisMovement(i, 3));
                     DrawTextEx(font, line1, (Vector2){10, y}, gp_size, 1, BLACK);
-                    y += 24;
+                    y += 31;
                     const char *line2 = TextFormat(
                             "     axes4,5=%.2f,%.2f btns=%s",
                             GetGamepadAxisMovement(i, 4),
                             GetGamepadAxisMovement(i, 5),
                             btns);
                     DrawTextEx(font, line2, (Vector2){10, y}, gp_size, 1, BLACK);
-                    y += 24;
+                    y += 31;
                 }
 
                 /* Draw log ring — top-right corner, oldest first */
@@ -798,7 +807,7 @@ int main(void)
                     DrawTextEx(font, log_ring[idx],
                                (Vector2){screen_width - sz.x - 10, log_y},
                                log_size, 1, BLACK);
-                    log_y += 20;
+                    log_y += 24;
                 }
             }
 
