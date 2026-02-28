@@ -29,6 +29,33 @@ static Wave generate_tone(float freq, float duration, float volume)
     return wave;
 }
 
+static Wave generate_bubble_pop(float duration, float volume)
+{
+    int sample_count = (int)(SAMPLE_RATE * duration);
+    short *data = malloc(sizeof(short) * sample_count);
+
+    for (int i = 0; i < sample_count; i++) {
+        float t = (float)i / SAMPLE_RATE;
+        float progress = t / duration;
+        /* Quick rise from 300Hz to 800Hz, then drop off */
+        float freq = 300.0f + 500.0f * sinf(progress * PI * 0.5f);
+        /* Fast attack, quick decay */
+        float envelope = (1.0f - progress) * (1.0f - progress);
+        if (progress < 0.05f) envelope *= progress / 0.05f;
+        float sample = sinf(2.0f * PI * freq * t) * envelope * volume;
+        data[i] = (short)(sample * 32767.0f);
+    }
+
+    Wave wave = {
+        .frameCount = sample_count,
+        .sampleRate = SAMPLE_RATE,
+        .sampleSize = 16,
+        .channels = 1,
+        .data = data,
+    };
+    return wave;
+}
+
 void audio_init(void)
 {
     InitAudioDevice();
@@ -37,7 +64,7 @@ void audio_init(void)
     sounds[SOUND_BUTTON] = LoadSoundFromWave(button_wave);
     free(button_wave.data);
 
-    Wave collision_wave = generate_tone(220.0f, 0.25f, 0.4f);
+    Wave collision_wave = generate_bubble_pop(0.12f, 0.3f);
     sounds[SOUND_COLLISION] = LoadSoundFromWave(collision_wave);
     free(collision_wave.data);
 }
