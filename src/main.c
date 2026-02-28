@@ -54,6 +54,12 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define PARKING_LOT_H 140.0f
 #define PARKING_LOT_MARGIN 120.0f
 #define CAR_SIZE 100.0f
+#define MAX_WALLS 5
+#define WALL_MIN_W 60.0f
+#define WALL_MAX_W 250.0f
+#define WALL_MIN_H 20.0f
+#define WALL_MAX_H 40.0f
+#define WALL_MARGIN 80.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     {230, 41, 55, 255},   /* RED */
@@ -128,6 +134,64 @@ static Rectangle randomize_parking_lot(void)
     return (Rectangle){x, y, PARKING_LOT_W, PARKING_LOT_H};
 }
 
+static float randf(float min, float max)
+{
+    return min + (float)rand() / (float)RAND_MAX * (max - min);
+}
+
+static void randomize_walls(Rectangle *walls, int count, Rectangle parking_lot)
+{
+    for (int i = 0; i < count; i++) {
+        for (int attempts = 0; attempts < 50; attempts++) {
+            float w = randf(WALL_MIN_W, WALL_MAX_W);
+            float h = randf(WALL_MIN_H, WALL_MAX_H);
+            float x = randf(WALL_MARGIN, screen_width - WALL_MARGIN - w);
+            float y = randf(WALL_MARGIN, screen_height - WALL_MARGIN - h);
+            Rectangle wall = {x, y, w, h};
+            if (!CheckCollisionRecs(wall, parking_lot)) {
+                walls[i] = wall;
+                break;
+            }
+        }
+    }
+}
+
+static void resolve_wall_collision(PlayerState *player, Rectangle wall)
+{
+    float half_car = CAR_SIZE / 2.0f;
+    Rectangle car_rect = {
+        player->position.x - half_car,
+        player->position.y - half_car,
+        CAR_SIZE, CAR_SIZE
+    };
+    if (!CheckCollisionRecs(car_rect, wall))
+        return;
+
+    /* Push car out along the shortest overlap axis */
+    float overlap_left = (car_rect.x + car_rect.width) - wall.x;
+    float overlap_right = (wall.x + wall.width) - car_rect.x;
+    float overlap_top = (car_rect.y + car_rect.height) - wall.y;
+    float overlap_bottom = (wall.y + wall.height) - car_rect.y;
+
+    float min_overlap = overlap_left;
+    float push_x = -overlap_left, push_y = 0;
+
+    if (overlap_right < min_overlap) {
+        min_overlap = overlap_right;
+        push_x = overlap_right; push_y = 0;
+    }
+    if (overlap_top < min_overlap) {
+        min_overlap = overlap_top;
+        push_x = 0; push_y = -overlap_top;
+    }
+    if (overlap_bottom < min_overlap) {
+        push_x = 0; push_y = overlap_bottom;
+    }
+
+    player->position.x += push_x;
+    player->position.y += push_y;
+}
+
 static float angle_from_stick(Vector2 stick, float current_angle)
 {
     if (fabsf(stick.x) < 0.2f && fabsf(stick.y) < 0.2f)
@@ -191,6 +255,8 @@ int main(void)
 
     srand((unsigned)time(NULL));
     Rectangle parking_lot = randomize_parking_lot();
+    Rectangle walls[MAX_WALLS] = {0};
+    randomize_walls(walls, MAX_WALLS, parking_lot);
     float car_angles[MAX_PLAYERS] = {0};
 
     dzlog_info("entering game loop");
@@ -320,8 +386,10 @@ int main(void)
                 log_ring_push("menu: selected '%s'", MENU_ITEMS[menu_selection]);
                 reset_game_state(players, &particles, prev_colliding);
                 game_mode = MENU_MODES[menu_selection];
-                if (game_mode == MODE_PARK)
+                if (game_mode == MODE_PARK) {
                     parking_lot = randomize_parking_lot();
+                    randomize_walls(walls, MAX_WALLS, parking_lot);
+                }
                 scene = SCENE_PLAYING;
             }
 
@@ -420,11 +488,17 @@ int main(void)
             }
 
             if (game_mode == MODE_PARK) {
-                /* --- Park mode: check if any car is in the parking lot --- */
+                /* --- Park mode --- */
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!players[i].active) continue;
                     car_angles[i] = angle_from_stick(inputs[i].left_stick,
                                                      car_angles[i]);
+
+                    /* Wall collision */
+                    for (int w = 0; w < MAX_WALLS; w++)
+                        resolve_wall_collision(&players[i], walls[w]);
+
+                    /* Check parking */
                     if (CheckCollisionPointRec(players[i].position, parking_lot)) {
                         Vector2 lot_center = {
                             parking_lot.x + parking_lot.width / 2,
@@ -434,6 +508,7 @@ int main(void)
                                         players[i].color, 30);
                         audio_play(SOUND_COLLISION);
                         parking_lot = randomize_parking_lot();
+                        randomize_walls(walls, MAX_WALLS, parking_lot);
                     }
                 }
             }
@@ -453,6 +528,10 @@ int main(void)
             }
 
             if (game_mode == MODE_PARK) {
+                /* Draw walls */
+                for (int i = 0; i < MAX_WALLS; i++)
+                    DrawRectangleRec(walls[i], DARKGRAY);
+
                 /* Draw parking lot */
                 DrawRectangleRec(parking_lot, GRAY);
                 Vector2 p_center = {
