@@ -8,9 +8,12 @@
 
 #include "zlog.h"
 
+#include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define LOG_RING_SIZE 12
 #define LOG_LINE_LEN 120
@@ -33,13 +36,24 @@ int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
 
 typedef enum { SCENE_MENU, SCENE_PLAYING } GameScene;
+typedef enum { MODE_FREE_PLAY, MODE_PARK, MODE_COLOR_MATCH } GameMode;
 
 #define MENU_ITEM_COUNT 3
 static const char *MENU_ITEMS[MENU_ITEM_COUNT] = {
     "Free Play",
-    "Chase",
+    "Park",
     "Color Match",
 };
+static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
+    MODE_FREE_PLAY,
+    MODE_PARK,
+    MODE_COLOR_MATCH,
+};
+
+#define PARKING_LOT_W 120.0f
+#define PARKING_LOT_H 80.0f
+#define PARKING_LOT_MARGIN 100.0f
+#define CAR_SIZE 60.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     {230, 41, 55, 255},   /* RED */
@@ -105,6 +119,22 @@ static bool select_pressed_solo(int gamepad_id)
         && !IsGamepadButtonDown(gamepad_id, GAMEPAD_BUTTON_MIDDLE_RIGHT);
 }
 
+static Rectangle randomize_parking_lot(void)
+{
+    float x = PARKING_LOT_MARGIN +
+              (float)(rand() % (int)(screen_width - 2 * PARKING_LOT_MARGIN - PARKING_LOT_W));
+    float y = PARKING_LOT_MARGIN +
+              (float)(rand() % (int)(screen_height - 2 * PARKING_LOT_MARGIN - PARKING_LOT_H));
+    return (Rectangle){x, y, PARKING_LOT_W, PARKING_LOT_H};
+}
+
+static float angle_from_stick(Vector2 stick, float current_angle)
+{
+    if (fabsf(stick.x) < 0.2f && fabsf(stick.y) < 0.2f)
+        return current_angle;
+    return atan2f(stick.y, stick.x) * RAD2DEG + 90.0f;
+}
+
 int main(void)
 {
     dzlog_init("assets/zlog.conf", "kiddo");
@@ -126,6 +156,9 @@ int main(void)
 
     Font font = LoadFontEx("assets/Fredoka.ttf", 120, NULL, 0);
     SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+
+    Texture2D car_tex = LoadTexture("assets/taxi.png");
+    SetTextureFilter(car_tex, TEXTURE_FILTER_BILINEAR);
 
     input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
@@ -151,9 +184,14 @@ int main(void)
     bool prev_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
 
     GameScene scene = SCENE_PLAYING;
+    GameMode game_mode = MODE_FREE_PLAY;
     int menu_selection = 0;
     bool prev_stick_up = false;
     bool prev_stick_down = false;
+
+    srand((unsigned)time(NULL));
+    Rectangle parking_lot = randomize_parking_lot();
+    float car_angles[MAX_PLAYERS] = {0};
 
     dzlog_info("entering game loop");
     log_ring_push("entering game loop");
@@ -276,6 +314,9 @@ int main(void)
                 dzlog_info("menu: selected '%s'", MENU_ITEMS[menu_selection]);
                 log_ring_push("menu: selected '%s'", MENU_ITEMS[menu_selection]);
                 reset_game_state(players, &particles, prev_colliding);
+                game_mode = MENU_MODES[menu_selection];
+                if (game_mode == MODE_PARK)
+                    parking_lot = randomize_parking_lot();
                 scene = SCENE_PLAYING;
             }
 
@@ -323,66 +364,116 @@ int main(void)
             if (scene == SCENE_MENU)
                 continue;
 
+            /* --- Input & update (shared across modes) --- */
+            InputState inputs[MAX_PLAYERS] = {0};
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 bool gamepad_connected = IsGamepadAvailable(i);
 
                 if (i == 0) {
-                    /* Player 0: keyboard always, gamepad merged if available */
                     InputState kb = input_read_keyboard();
-                    InputState input = gamepad_connected
+                    inputs[0] = gamepad_connected
                         ? merge_input(input_read(0), kb)
                         : kb;
-                    players[0] = player_update(players[0], input, dt);
-
-                    if (any_button_pressed(&input)) {
-                        particles_spawn(&particles, players[0].position,
-                                        players[0].color, 15);
-                        audio_play(SOUND_BUTTON);
-                    }
+                    players[0] = player_update(players[0], inputs[0], dt);
                 } else if (gamepad_connected) {
                     if (!players[i].active) {
                         players[i] = player_init(i, player_start_pos(i),
                                                  PLAYER_SHAPES[i], PLAYER_COLORS[i]);
                     }
-                    InputState input = input_read(i);
-                    players[i] = player_update(players[i], input, dt);
-
-                    if (any_button_pressed(&input)) {
-                        particles_spawn(&particles, players[i].position,
-                                        players[i].color, 15);
-                        audio_play(SOUND_BUTTON);
-                    }
+                    inputs[i] = input_read(i);
+                    players[i] = player_update(players[i], inputs[i], dt);
                 } else {
                     players[i].active = false;
                 }
             }
 
-            CollisionEvent collisions[MAX_COLLISIONS];
-            int collision_count = collision_detect(players, MAX_PLAYERS,
-                                                   collisions, MAX_COLLISIONS);
-            bool cur_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
-            for (int i = 0; i < collision_count; i++) {
-                int a = collisions[i].player_a;
-                int b = collisions[i].player_b;
-                cur_colliding[a][b] = true;
-                cur_colliding[b][a] = true;
-                if (!prev_colliding[a][b]) {
-                    particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
-                    audio_play(SOUND_COLLISION);
+            if (game_mode == MODE_FREE_PLAY || game_mode == MODE_COLOR_MATCH) {
+                /* --- Free Play mode --- */
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (players[i].active && any_button_pressed(&inputs[i])) {
+                        particles_spawn(&particles, players[i].position,
+                                        players[i].color, 15);
+                        audio_play(SOUND_BUTTON);
+                    }
+                }
+
+                CollisionEvent collisions[MAX_COLLISIONS];
+                int collision_count = collision_detect(players, MAX_PLAYERS,
+                                                       collisions, MAX_COLLISIONS);
+                bool cur_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
+                for (int i = 0; i < collision_count; i++) {
+                    int a = collisions[i].player_a;
+                    int b = collisions[i].player_b;
+                    cur_colliding[a][b] = true;
+                    cur_colliding[b][a] = true;
+                    if (!prev_colliding[a][b]) {
+                        particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
+                        audio_play(SOUND_COLLISION);
+                    }
+                }
+                memcpy(prev_colliding, cur_colliding, sizeof(prev_colliding));
+            }
+
+            if (game_mode == MODE_PARK) {
+                /* --- Park mode: check if any car is in the parking lot --- */
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (!players[i].active) continue;
+                    car_angles[i] = angle_from_stick(inputs[i].left_stick,
+                                                     car_angles[i]);
+                    if (CheckCollisionPointRec(players[i].position, parking_lot)) {
+                        Vector2 lot_center = {
+                            parking_lot.x + parking_lot.width / 2,
+                            parking_lot.y + parking_lot.height / 2
+                        };
+                        particles_spawn(&particles, lot_center,
+                                        players[i].color, 30);
+                        audio_play(SOUND_COLLISION);
+                        parking_lot = randomize_parking_lot();
+                    }
                 }
             }
-            memcpy(prev_colliding, cur_colliding, sizeof(prev_colliding));
 
             particles_update(&particles, dt);
 
             BeginDrawing();
             render_background();
 
-            for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (players[i].active)
-                    render_shape(players[i].shape, players[i].position,
-                                 players[i].rotation, players[i].scale,
-                                 players[i].color);
+            if (game_mode == MODE_FREE_PLAY || game_mode == MODE_COLOR_MATCH) {
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (players[i].active)
+                        render_shape(players[i].shape, players[i].position,
+                                     players[i].rotation, players[i].scale,
+                                     players[i].color);
+                }
+            }
+
+            if (game_mode == MODE_PARK) {
+                /* Draw parking lot */
+                DrawRectangleLinesEx(parking_lot, 4, GREEN);
+                Vector2 p_center = {
+                    parking_lot.x + parking_lot.width / 2,
+                    parking_lot.y + parking_lot.height / 2
+                };
+                Vector2 p_sz = MeasureTextEx(font, "P", 50.0f, 1);
+                DrawTextEx(font, "P",
+                           (Vector2){p_center.x - p_sz.x / 2,
+                                     p_center.y - p_sz.y / 2},
+                           50.0f, 1, GREEN);
+
+                /* Draw cars */
+                float car_scale = CAR_SIZE / (float)car_tex.width;
+                Rectangle src = {0, 0, (float)car_tex.width,
+                                 (float)car_tex.height};
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (!players[i].active) continue;
+                    float dw = (float)car_tex.width * car_scale;
+                    float dh = (float)car_tex.height * car_scale;
+                    Rectangle dst = {players[i].position.x,
+                                     players[i].position.y, dw, dh};
+                    Vector2 origin = {dw / 2, dh / 2};
+                    DrawTexturePro(car_tex, src, dst, origin,
+                                   car_angles[i], players[i].color);
+                }
             }
 
             render_particles(particles.items, particles.count);
@@ -452,6 +543,7 @@ int main(void)
 quit:
     dzlog_info("exiting game loop (frame=%d t=%.1fs)", frame, elapsed);
     particles_free(&particles);
+    UnloadTexture(car_tex);
     UnloadFont(font);
     audio_shutdown();
     CloseWindow();
