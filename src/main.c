@@ -54,6 +54,8 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define PARKING_LOT_H 140.0f
 #define PARKING_LOT_MARGIN 120.0f
 #define CAR_SIZE 100.0f
+#define CAR_HALF_W 22.0f
+#define CAR_HALF_H 43.0f
 #define MAX_WALLS 5
 #define WALL_LONG_MIN 200.0f
 #define WALL_LONG_MAX 400.0f
@@ -159,40 +161,77 @@ static void randomize_walls(Rectangle *walls, int count, Rectangle parking_lot)
     }
 }
 
-static void resolve_wall_collision(PlayerState *player, Rectangle wall)
+static void project_corners(const Vector2 *corners, int count,
+                            Vector2 axis, float *mn, float *mx)
 {
-    float half_car = CAR_SIZE / 2.0f;
-    Rectangle car_rect = {
-        player->position.x - half_car,
-        player->position.y - half_car,
-        CAR_SIZE, CAR_SIZE
+    *mn = *mx = corners[0].x * axis.x + corners[0].y * axis.y;
+    for (int i = 1; i < count; i++) {
+        float p = corners[i].x * axis.x + corners[i].y * axis.y;
+        if (p < *mn) *mn = p;
+        if (p > *mx) *mx = p;
+    }
+}
+
+static void car_obb_corners(Vector2 center, float angle_deg,
+                            Vector2 *out)
+{
+    float rad = angle_deg * DEG2RAD;
+    float c = cosf(rad), s = sinf(rad);
+    Vector2 ax = {c, s};
+    Vector2 ay = {-s, c};
+    out[0] = (Vector2){center.x - CAR_HALF_W*ax.x - CAR_HALF_H*ay.x,
+                       center.y - CAR_HALF_W*ax.y - CAR_HALF_H*ay.y};
+    out[1] = (Vector2){center.x + CAR_HALF_W*ax.x - CAR_HALF_H*ay.x,
+                       center.y + CAR_HALF_W*ax.y - CAR_HALF_H*ay.y};
+    out[2] = (Vector2){center.x + CAR_HALF_W*ax.x + CAR_HALF_H*ay.x,
+                       center.y + CAR_HALF_W*ax.y + CAR_HALF_H*ay.y};
+    out[3] = (Vector2){center.x - CAR_HALF_W*ax.x + CAR_HALF_H*ay.x,
+                       center.y - CAR_HALF_W*ax.y + CAR_HALF_H*ay.y};
+}
+
+static void resolve_wall_collision(PlayerState *player, float angle_deg,
+                                   Rectangle wall)
+{
+    float rad = angle_deg * DEG2RAD;
+    float c = cosf(rad), s = sinf(rad);
+    Vector2 car_ax = {c, s};
+    Vector2 car_ay = {-s, c};
+
+    Vector2 car_corners[4];
+    car_obb_corners(player->position, angle_deg, car_corners);
+
+    Vector2 wall_corners[4] = {
+        {wall.x, wall.y},
+        {wall.x + wall.width, wall.y},
+        {wall.x + wall.width, wall.y + wall.height},
+        {wall.x, wall.y + wall.height},
     };
-    if (!CheckCollisionRecs(car_rect, wall))
-        return;
 
-    /* Push car out along the shortest overlap axis */
-    float overlap_left = (car_rect.x + car_rect.width) - wall.x;
-    float overlap_right = (wall.x + wall.width) - car_rect.x;
-    float overlap_top = (car_rect.y + car_rect.height) - wall.y;
-    float overlap_bottom = (wall.y + wall.height) - car_rect.y;
+    /* SAT: 2 car axes + 2 wall axes (x, y) */
+    Vector2 axes[4] = {car_ax, car_ay, {1, 0}, {0, 1}};
 
-    float min_overlap = overlap_left;
-    float push_x = -overlap_left, push_y = 0;
+    float min_overlap = 1e9f;
+    Vector2 push_axis = {0};
 
-    if (overlap_right < min_overlap) {
-        min_overlap = overlap_right;
-        push_x = overlap_right; push_y = 0;
+    for (int a = 0; a < 4; a++) {
+        float c_mn, c_mx, w_mn, w_mx;
+        project_corners(car_corners, 4, axes[a], &c_mn, &c_mx);
+        project_corners(wall_corners, 4, axes[a], &w_mn, &w_mx);
+
+        float overlap = fminf(c_mx - w_mn, w_mx - c_mn);
+        if (overlap <= 0) return; /* separated */
+
+        if (overlap < min_overlap) {
+            min_overlap = overlap;
+            float car_mid = (c_mn + c_mx) * 0.5f;
+            float wall_mid = (w_mn + w_mx) * 0.5f;
+            float sign = (car_mid > wall_mid) ? 1.0f : -1.0f;
+            push_axis = (Vector2){axes[a].x * sign, axes[a].y * sign};
+        }
     }
-    if (overlap_top < min_overlap) {
-        min_overlap = overlap_top;
-        push_x = 0; push_y = -overlap_top;
-    }
-    if (overlap_bottom < min_overlap) {
-        push_x = 0; push_y = overlap_bottom;
-    }
 
-    player->position.x += push_x;
-    player->position.y += push_y;
+    player->position.x += push_axis.x * min_overlap;
+    player->position.y += push_axis.y * min_overlap;
 }
 
 static float angle_from_stick(Vector2 stick, float current_angle)
@@ -499,7 +538,8 @@ int main(void)
 
                     /* Wall collision */
                     for (int w = 0; w < MAX_WALLS; w++)
-                        resolve_wall_collision(&players[i], walls[w]);
+                        resolve_wall_collision(&players[i], car_angles[i],
+                                               walls[w]);
 
                     /* Check parking */
                     if (CheckCollisionPointRec(players[i].position, parking_lot)) {
