@@ -252,9 +252,6 @@ int main(void)
         /* Debug overlay (toggle with Select or F3) */
         if (debug_visible) {
             int y = 10;
-            DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()),
-                    10, y, 20, BLACK);
-            y += 24;
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (!IsGamepadAvailable(i)) continue;
                 char btns[19] = {0};
