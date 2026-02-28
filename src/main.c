@@ -147,7 +147,7 @@ int main(void)
     bool debug_visible = false;
     bool prev_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
 
-    GameScene scene = SCENE_MENU;
+    GameScene scene = SCENE_PLAYING;
     int menu_selection = 0;
     bool prev_stick_up = false;
     bool prev_stick_down = false;
