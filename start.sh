@@ -83,6 +83,12 @@ needs_build() {
     return 1
 }
 
+# Save Steam environment for the game binary, clean it for build tools
+SAVED_LD_PRELOAD="${LD_PRELOAD:-}"
+SAVED_LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
+unset LD_PRELOAD
+unset LD_LIBRARY_PATH
+
 echo "LOG: needs_build check at +$(echo "$(ts) - $T_START" | bc)s"
 if needs_build; then
     echo "LOG: build needed at +$(echo "$(ts) - $T_START" | bc)s"
@@ -131,6 +137,10 @@ if needs_build; then
 else
     echo "LOG: binary up to date, skipping build at +$(echo "$(ts) - $T_START" | bc)s"
 fi
+
+# Restore Steam environment for the game binary
+export LD_PRELOAD="${SAVED_LD_PRELOAD}"
+export LD_LIBRARY_PATH="${SAVED_LD_LIBRARY_PATH}"
 
 echo "LOG: launching kiddo at +$(echo "$(ts) - $T_START" | bc)s"
 exec ./build/Release/kiddo
