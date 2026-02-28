@@ -55,10 +55,10 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define PARKING_LOT_MARGIN 120.0f
 #define CAR_SIZE 100.0f
 #define MAX_WALLS 5
-#define WALL_MIN_W 60.0f
-#define WALL_MAX_W 250.0f
-#define WALL_MIN_H 20.0f
-#define WALL_MAX_H 40.0f
+#define WALL_LONG_MIN 200.0f
+#define WALL_LONG_MAX 400.0f
+#define WALL_SHORT_MIN 20.0f
+#define WALL_SHORT_MAX 40.0f
 #define WALL_MARGIN 80.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
@@ -143,8 +143,11 @@ static void randomize_walls(Rectangle *walls, int count, Rectangle parking_lot)
 {
     for (int i = 0; i < count; i++) {
         for (int attempts = 0; attempts < 50; attempts++) {
-            float w = randf(WALL_MIN_W, WALL_MAX_W);
-            float h = randf(WALL_MIN_H, WALL_MAX_H);
+            float long_side = randf(WALL_LONG_MIN, WALL_LONG_MAX);
+            float short_side = randf(WALL_SHORT_MIN, WALL_SHORT_MAX);
+            bool horizontal = rand() % 2;
+            float w = horizontal ? long_side : short_side;
+            float h = horizontal ? short_side : long_side;
             float x = randf(WALL_MARGIN, screen_width - WALL_MARGIN - w);
             float y = randf(WALL_MARGIN, screen_height - WALL_MARGIN - h);
             Rectangle wall = {x, y, w, h};
