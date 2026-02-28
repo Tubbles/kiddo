@@ -555,6 +555,12 @@ int main(void)
                 }
             }
 
+            /* Arena boundary collision (all modes) */
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (players[i].active)
+                    resolve_arena_collision(&players[i]);
+            }
+
             if (game_mode == MODE_FREE_PLAY || game_mode == MODE_COLOR_MATCH) {
                 /* --- Free Play mode --- */
                 for (int i = 0; i < MAX_PLAYERS; i++) {
@@ -588,9 +594,6 @@ int main(void)
                     if (!players[i].active) continue;
                     car_angles[i] = angle_from_stick(inputs[i].left_stick,
                                                      car_angles[i]);
-
-                    /* Arena boundary collision */
-                    resolve_arena_collision(&players[i]);
 
                     /* Wall collision */
                     for (int w = 0; w < MAX_WALLS; w++)
