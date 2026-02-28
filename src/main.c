@@ -9,6 +9,25 @@
 #include "zlog.h"
 
 #include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+
+#define LOG_RING_SIZE 12
+#define LOG_LINE_LEN 120
+
+static char log_ring[LOG_RING_SIZE][LOG_LINE_LEN];
+static int log_ring_head = 0;
+static int log_ring_count = 0;
+
+static void log_ring_push(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(log_ring[log_ring_head], LOG_LINE_LEN, fmt, ap);
+    va_end(ap);
+    log_ring_head = (log_ring_head + 1) % LOG_RING_SIZE;
+    if (log_ring_count < LOG_RING_SIZE) log_ring_count++;
+}
 
 int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
@@ -96,8 +115,10 @@ int main(void)
     int frame = 0;
     float elapsed = 0.0f;
     int prev_gamepads = -1;
+    bool debug_visible = false;
 
     dzlog_info("entering game loop");
+    log_ring_push("entering game loop");
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -112,6 +133,8 @@ int main(void)
             dzlog_debug("frame=%d t=%.1fs dt=%.4f fps=%d "
                     "players=%d particles=%d",
                     frame, elapsed, dt, GetFPS(), active, particles.count);
+            log_ring_push("frame=%d t=%.1fs fps=%d players=%d",
+                    frame, elapsed, GetFPS(), active);
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (IsGamepadAvailable(i)) {
                     InputState dbg = input_read(i);
@@ -144,9 +167,13 @@ int main(void)
         if (gamepads != prev_gamepads) {
             dzlog_info("gamepads %d -> %d (frame=%d)",
                     prev_gamepads, gamepads, frame);
+            log_ring_push("gamepads %d -> %d (frame=%d)",
+                    prev_gamepads, gamepads, frame);
             for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (IsGamepadAvailable(i))
+                if (IsGamepadAvailable(i)) {
                     dzlog_info("gamepad %d: %s", i, GetGamepadName(i));
+                    log_ring_push("gamepad %d: %s", i, GetGamepadName(i));
+                }
             }
             prev_gamepads = gamepads;
         }
@@ -156,6 +183,15 @@ int main(void)
             if (input_exit_requested(i))
                 goto quit;
         }
+
+        /* Toggle debug overlay with Select */
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (IsGamepadAvailable(i) &&
+                IsGamepadButtonPressed(i, GAMEPAD_BUTTON_MIDDLE_LEFT))
+                debug_visible = !debug_visible;
+        }
+        if (IsKeyPressed(KEY_F3))
+            debug_visible = !debug_visible;
 
         for (int i = 0; i < MAX_PLAYERS; i++) {
             bool gamepad_connected = IsGamepadAvailable(i);
@@ -213,29 +249,45 @@ int main(void)
 
         render_particles(particles.items, particles.count);
 
-        /* Debug overlay */
-        int y = 10;
-        DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()), 10, y, 20, BLACK);
-        y += 24;
-        for (int i = 0; i < MAX_PLAYERS; i++) {
-            if (!IsGamepadAvailable(i)) continue;
-            char btns[19] = {0};
-            for (int b = 0; b < 18; b++)
-                btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
-            DrawText(TextFormat("gp%d stick=%.2f,%.2f rstick=%.2f,%.2f",
-                    i,
-                    GetGamepadAxisMovement(i, 0),
-                    GetGamepadAxisMovement(i, 1),
-                    GetGamepadAxisMovement(i, 2),
-                    GetGamepadAxisMovement(i, 3)),
+        /* Debug overlay (toggle with Select or F3) */
+        if (debug_visible) {
+            int y = 10;
+            DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()),
                     10, y, 20, BLACK);
             y += 24;
-            DrawText(TextFormat("     axes4,5=%.2f,%.2f btns=%s",
-                    GetGamepadAxisMovement(i, 4),
-                    GetGamepadAxisMovement(i, 5),
-                    btns),
-                    10, y, 20, BLACK);
-            y += 24;
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (!IsGamepadAvailable(i)) continue;
+                char btns[19] = {0};
+                for (int b = 0; b < 18; b++)
+                    btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
+                DrawText(TextFormat("gp%d stick=%.2f,%.2f rstick=%.2f,%.2f",
+                        i,
+                        GetGamepadAxisMovement(i, 0),
+                        GetGamepadAxisMovement(i, 1),
+                        GetGamepadAxisMovement(i, 2),
+                        GetGamepadAxisMovement(i, 3)),
+                        10, y, 20, BLACK);
+                y += 24;
+                DrawText(TextFormat("     axes4,5=%.2f,%.2f btns=%s",
+                        GetGamepadAxisMovement(i, 4),
+                        GetGamepadAxisMovement(i, 5),
+                        btns),
+                        10, y, 20, BLACK);
+                y += 24;
+            }
+
+            /* Log ring — top-right corner, oldest first */
+            int log_y = 10;
+            int start = (log_ring_count < LOG_RING_SIZE)
+                ? 0
+                : log_ring_head;
+            for (int i = 0; i < log_ring_count; i++) {
+                int idx = (start + i) % LOG_RING_SIZE;
+                int tw = MeasureText(log_ring[idx], 16);
+                DrawText(log_ring[idx], screen_width - tw - 10,
+                        log_y, 16, BLACK);
+                log_y += 20;
+            }
         }
 
         EndDrawing();
