@@ -36,18 +36,16 @@ int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
 
 typedef enum { SCENE_MENU, SCENE_PLAYING } GameScene;
-typedef enum { MODE_FREE_PLAY, MODE_PARK, MODE_COLOR_MATCH } GameMode;
+typedef enum { MODE_FREE_PLAY, MODE_PARK } GameMode;
 
-#define MENU_ITEM_COUNT 3
+#define MENU_ITEM_COUNT 2
 static const char *MENU_ITEMS[MENU_ITEM_COUNT] = {
-    "Free Play",
-    "Park",
-    "Color Match",
+    "FRI",
+    "BIL",
 };
 static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
     MODE_FREE_PLAY,
     MODE_PARK,
-    MODE_COLOR_MATCH,
 };
 
 #define PARKING_LOT_W 200.0f
@@ -561,7 +559,7 @@ int main(void)
                     resolve_arena_collision(&players[i]);
             }
 
-            if (game_mode == MODE_FREE_PLAY || game_mode == MODE_COLOR_MATCH) {
+            if (game_mode == MODE_FREE_PLAY) {
                 /* --- Free Play mode --- */
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (players[i].active && any_button_pressed(&inputs[i])) {
@@ -620,7 +618,7 @@ int main(void)
             BeginDrawing();
             render_background();
 
-            if (game_mode == MODE_FREE_PLAY || game_mode == MODE_COLOR_MATCH) {
+            if (game_mode == MODE_FREE_PLAY) {
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (players[i].active)
                         render_shape(players[i].shape, players[i].position,
