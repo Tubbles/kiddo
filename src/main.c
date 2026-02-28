@@ -661,6 +661,47 @@ int main(void)
             if (debug_visible) {
                 DrawRectangle(0, 0, screen_width, screen_height,
                               (Color){255, 255, 255, 160});
+
+                /* Arena boundary */
+                Rectangle arena_rect = {ARENA_PAD, ARENA_PAD,
+                    screen_width - 2 * ARENA_PAD,
+                    screen_height - 2 * ARENA_PAD};
+                DrawRectangleRoundedLinesEx(arena_rect, 0.05f, 16, 2,
+                                            (Color){255, 0, 0, 100});
+
+                if (game_mode == MODE_PARK) {
+                    /* Walls */
+                    for (int i = 0; i < MAX_WALLS; i++)
+                        DrawRectangleLinesEx(walls[i], 2,
+                                             (Color){255, 0, 0, 100});
+                    /* Parking lot */
+                    DrawRectangleLinesEx(parking_lot, 2,
+                                         (Color){0, 200, 0, 100});
+                }
+
+                /* Player bounding boxes */
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (!players[i].active) continue;
+                    Color bc = {players[i].color.r, players[i].color.g,
+                                players[i].color.b, 80};
+                    if (game_mode == MODE_PARK) {
+                        /* Rotated car OBB */
+                        Vector2 corners[4];
+                        car_obb_corners(players[i].position,
+                                        car_angles[i], corners);
+                        for (int j = 0; j < 4; j++) {
+                            int k = (j + 1) % 4;
+                            DrawLineEx(corners[j], corners[k], 2, bc);
+                        }
+                    } else {
+                        /* Circle bound for shapes */
+                        float r = SHAPE_BASE_SIZE * players[i].scale;
+                        DrawCircleLines((int)players[i].position.x,
+                                        (int)players[i].position.y,
+                                        r, bc);
+                    }
+                }
+
                 float y = 10;
                 float dbg_size = 16.0f;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
