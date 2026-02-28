@@ -215,7 +215,7 @@ int main(void)
 
         /* Debug overlay */
         int y = 10;
-        DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()), 10, y, 20, WHITE);
+        DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()), 10, y, 20, BLACK);
         y += 24;
         for (int i = 0; i < MAX_PLAYERS; i++) {
             if (!IsGamepadAvailable(i)) continue;
@@ -228,13 +228,13 @@ int main(void)
                     GetGamepadAxisMovement(i, 1),
                     GetGamepadAxisMovement(i, 2),
                     GetGamepadAxisMovement(i, 3)),
-                    10, y, 20, WHITE);
+                    10, y, 20, BLACK);
             y += 24;
             DrawText(TextFormat("     axes4,5=%.2f,%.2f btns=%s",
                     GetGamepadAxisMovement(i, 4),
                     GetGamepadAxisMovement(i, 5),
                     btns),
-                    10, y, 20, WHITE);
+                    10, y, 20, BLACK);
             y += 24;
         }
 
