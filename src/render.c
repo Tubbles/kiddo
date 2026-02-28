@@ -6,7 +6,7 @@
 void render_background(void)
 {
     ClearBackground(BLACK);
-    Rectangle arena = {20, 20, screen_width - 40, screen_height - 40};
+    Rectangle arena = {0, 0, screen_width, screen_height};
     DrawRectangleRounded(arena, 0.05f, 16, (Color){245, 245, 220, 255});
 }
 

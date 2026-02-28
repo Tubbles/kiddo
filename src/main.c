@@ -60,7 +60,7 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define WALL_SHORT_MIN 20.0f
 #define WALL_SHORT_MAX 40.0f
 #define WALL_MARGIN 80.0f
-#define ARENA_PAD 20.0f
+#define ARENA_PAD 0.0f
 #define ARENA_RADIUS 80.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
