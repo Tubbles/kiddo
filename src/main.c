@@ -122,6 +122,17 @@ int main(void)
                             dbg.buttons[0], dbg.buttons[1],
                             dbg.buttons[2], dbg.buttons[3],
                             players[i].position.x, players[i].position.y);
+                    char btns[19] = {0};
+                    for (int b = 0; b < 18; b++)
+                        btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
+                    dzlog_debug("gp%d raw_buttons=%s axes=%.2f,%.2f,%.2f,%.2f,%.2f,%.2f",
+                            i, btns,
+                            GetGamepadAxisMovement(i, 0),
+                            GetGamepadAxisMovement(i, 1),
+                            GetGamepadAxisMovement(i, 2),
+                            GetGamepadAxisMovement(i, 3),
+                            GetGamepadAxisMovement(i, 4),
+                            GetGamepadAxisMovement(i, 5));
                 }
             }
         }
