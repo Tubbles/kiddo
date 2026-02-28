@@ -252,6 +252,19 @@ int main(void)
         /* Debug overlay (toggle with Select or F3) */
         if (debug_visible) {
             int y = 10;
+            const char *shape_names[] = {"circle", "square", "tri", "star"};
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (!players[i].active) continue;
+                DrawText(TextFormat("p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                        i,
+                        (players[i].shape < SHAPE_COUNT) ? shape_names[players[i].shape] : "???",
+                        players[i].scale,
+                        players[i].color.r, players[i].color.g,
+                        players[i].color.b, players[i].color.a,
+                        players[i].position.x, players[i].position.y),
+                        10, y, 16, BLACK);
+                y += 20;
+            }
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (!IsGamepadAvailable(i)) continue;
                 char btns[19] = {0};
