@@ -124,6 +124,9 @@ int main(void)
     ToggleBorderlessWindowed();
     dzlog_info("screen_width=%d screen_height=%d", screen_width, screen_height);
 
+    Font font = LoadFontEx("assets/Fredoka.ttf", 120, NULL, 0);
+    SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
+
     input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
     audio_init();
@@ -281,21 +284,25 @@ int main(void)
             render_background();
 
             const char *title = "Kiddo";
-            int title_size = 120;
-            int title_w = MeasureText(title, title_size);
-            DrawText(title, (screen_width - title_w) / 2,
-                     screen_height / 6, title_size, DARKGRAY);
+            float title_size = 120.0f;
+            Vector2 title_sz = MeasureTextEx(font, title, title_size, 1);
+            DrawTextEx(font, title,
+                       (Vector2){(screen_width - title_sz.x) / 2,
+                                 screen_height / 6.0f},
+                       title_size, 1, DARKGRAY);
 
-            int item_size = 60;
+            float item_size = 60.0f;
             int item_spacing = 80;
             int menu_height = MENU_ITEM_COUNT * item_spacing;
             int menu_start_y = (screen_height - menu_height) / 2;
 
             for (int i = 0; i < MENU_ITEM_COUNT; i++) {
                 Color color = (i == menu_selection) ? ORANGE : DARKGRAY;
-                int tw = MeasureText(MENU_ITEMS[i], item_size);
-                DrawText(MENU_ITEMS[i], (screen_width - tw) / 2,
-                         menu_start_y + i * item_spacing, item_size, color);
+                Vector2 sz = MeasureTextEx(font, MENU_ITEMS[i], item_size, 1);
+                DrawTextEx(font, MENU_ITEMS[i],
+                           (Vector2){(screen_width - sz.x) / 2,
+                                     menu_start_y + i * item_spacing},
+                           item_size, 1, color);
             }
 
             EndDrawing();
@@ -382,51 +389,58 @@ int main(void)
 
             /* Debug overlay (toggle with F3) */
             if (debug_visible) {
-                int y = 10;
+                float y = 10;
+                float dbg_size = 16.0f;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!players[i].active) continue;
-                    DrawText(TextFormat("p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                    const char *txt = TextFormat(
+                            "p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
                             i,
                             (players[i].shape < SHAPE_COUNT) ? shape_names[players[i].shape] : "???",
                             players[i].scale,
                             players[i].color.r, players[i].color.g,
                             players[i].color.b, players[i].color.a,
-                            players[i].position.x, players[i].position.y),
-                            10, y, 16, BLACK);
+                            players[i].position.x, players[i].position.y);
+                    DrawTextEx(font, txt, (Vector2){10, y}, dbg_size, 1, BLACK);
                     y += 20;
                 }
+                float gp_size = 20.0f;
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!IsGamepadAvailable(i)) continue;
                     char btns[19] = {0};
                     for (int b = 0; b < 18; b++)
                         btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
-                    DrawText(TextFormat("gp%d stick=%.2f,%.2f rstick=%.2f,%.2f",
+                    const char *line1 = TextFormat(
+                            "gp%d stick=%.2f,%.2f rstick=%.2f,%.2f",
                             i,
                             GetGamepadAxisMovement(i, 0),
                             GetGamepadAxisMovement(i, 1),
                             GetGamepadAxisMovement(i, 2),
-                            GetGamepadAxisMovement(i, 3)),
-                            10, y, 20, BLACK);
+                            GetGamepadAxisMovement(i, 3));
+                    DrawTextEx(font, line1, (Vector2){10, y}, gp_size, 1, BLACK);
                     y += 24;
-                    DrawText(TextFormat("     axes4,5=%.2f,%.2f btns=%s",
+                    const char *line2 = TextFormat(
+                            "     axes4,5=%.2f,%.2f btns=%s",
                             GetGamepadAxisMovement(i, 4),
                             GetGamepadAxisMovement(i, 5),
-                            btns),
-                            10, y, 20, BLACK);
+                            btns);
+                    DrawTextEx(font, line2, (Vector2){10, y}, gp_size, 1, BLACK);
                     y += 24;
                 }
 
                 /* Log ring — top-right corner, oldest first */
-                int log_y = 10;
+                float log_y = 10;
+                float log_size = 16.0f;
                 int start = (log_ring_count < LOG_RING_SIZE)
                     ? 0
                     : log_ring_head;
                 for (int i = 0; i < log_ring_count; i++) {
                     int idx = (start + i) % LOG_RING_SIZE;
-                    int tw = MeasureText(log_ring[idx], 16);
-                    DrawText(log_ring[idx], screen_width - tw - 10,
-                            log_y, 16, BLACK);
+                    Vector2 sz = MeasureTextEx(font, log_ring[idx], log_size, 1);
+                    DrawTextEx(font, log_ring[idx],
+                               (Vector2){screen_width - sz.x - 10, log_y},
+                               log_size, 1, BLACK);
                     log_y += 20;
                 }
             }
@@ -438,6 +452,7 @@ int main(void)
 quit:
     dzlog_info("exiting game loop (frame=%d t=%.1fs)", frame, elapsed);
     particles_free(&particles);
+    UnloadFont(font);
     audio_shutdown();
     CloseWindow();
     zlog_fini();
