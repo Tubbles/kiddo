@@ -281,13 +281,13 @@ int main(void)
             render_background();
 
             const char *title = "Kiddo";
-            int title_size = 60;
+            int title_size = 120;
             int title_w = MeasureText(title, title_size);
             DrawText(title, (screen_width - title_w) / 2,
-                     screen_height / 5, title_size, DARKGRAY);
+                     screen_height / 6, title_size, DARKGRAY);
 
-            int item_size = 30;
-            int item_spacing = 50;
+            int item_size = 60;
+            int item_spacing = 80;
             int menu_height = MENU_ITEM_COUNT * item_spacing;
             int menu_start_y = (screen_height - menu_height) / 2;
 
