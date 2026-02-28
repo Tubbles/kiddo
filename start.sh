@@ -82,6 +82,8 @@ needs_build() {
 }
 
 if needs_build; then
+    echo "LOG: build needed"
+
     # Prefer docker, fall back to podman, then native build
     CONTAINER_CMD=""
     if command -v docker &>/dev/null; then
@@ -91,27 +93,41 @@ if needs_build; then
     fi
 
     if [ -n "$CONTAINER_CMD" ]; then
-        echo "Building with $CONTAINER_CMD..."
+        echo "LOG: building with $CONTAINER_CMD..."
         mkdir -p build/Release
         $CONTAINER_CMD build --output=build/Release .
+        echo "LOG: container build finished"
     else
-        echo "No container runtime found, building natively with conan..."
+        echo "LOG: no container runtime, building natively with conan..."
 
+        echo "LOG: installing deps..."
         install_deps || true
+        echo "LOG: deps done"
 
         # Set up Python venv for conan
         VENV_DIR="$(pwd)/.venv"
         if [ ! -d "$VENV_DIR" ]; then
+            echo "LOG: creating venv at $VENV_DIR"
             python3 -m venv "$VENV_DIR"
         fi
         source "$VENV_DIR/bin/activate"
+        echo "LOG: venv activated"
 
         command -v conan &>/dev/null || pip install conan
         conan profile path default &>/dev/null || conan profile detect
+        echo "LOG: conan ready"
 
+        echo "LOG: conan install starting..."
         conan install . --output-folder=build --build=missing
+        echo "LOG: conan install done"
+
+        echo "LOG: conan build starting..."
         conan build .
+        echo "LOG: conan build done"
     fi
+else
+    echo "LOG: binary up to date, skipping build"
 fi
 
+echo "LOG: launching kiddo"
 exec ./build/Release/kiddo
