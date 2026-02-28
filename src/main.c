@@ -57,7 +57,6 @@ static InputState merge_input(InputState a, InputState b)
 
 int main(void)
 {
-    SetConfigFlags(FLAG_FULLSCREEN_MODE);
     InitWindow(SCREEN_WIDTH_DEFAULT, SCREEN_HEIGHT_DEFAULT, "Kiddo");
     HideCursor();
 
@@ -71,6 +70,7 @@ int main(void)
         screen_height = mon_h;
         SetWindowSize(screen_width, screen_height);
     }
+    ToggleBorderlessWindowed();
     fprintf(stderr, "LOG: screen_width=%d screen_height=%d\n",
             screen_width, screen_height);
     fflush(stderr);
