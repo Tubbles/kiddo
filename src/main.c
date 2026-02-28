@@ -659,6 +659,8 @@ int main(void)
 
             /* Debug overlay (toggle with F3) */
             if (debug_visible) {
+                DrawRectangle(0, 0, screen_width, screen_height,
+                              (Color){255, 255, 255, 160});
                 float y = 10;
                 float dbg_size = 16.0f;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
