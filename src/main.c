@@ -659,9 +659,6 @@ int main(void)
 
             /* Debug overlay (toggle with F3) */
             if (debug_visible) {
-                DrawRectangle(0, 0, screen_width, screen_height,
-                              (Color){255, 255, 255, 160});
-
                 /* Arena boundary */
                 Rectangle arena_rect = {ARENA_PAD, ARENA_PAD,
                     screen_width - 2 * ARENA_PAD,
@@ -702,9 +699,61 @@ int main(void)
                     }
                 }
 
-                float y = 10;
+                /* Compute left panel height */
                 float dbg_size = 16.0f;
+                float gp_size = 20.0f;
+                float left_h = 0;
+                float left_w = 0;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (!players[i].active) continue;
+                    const char *txt = TextFormat(
+                            "p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                            i,
+                            (players[i].shape < SHAPE_COUNT) ? shape_names[players[i].shape] : "???",
+                            players[i].scale,
+                            players[i].color.r, players[i].color.g,
+                            players[i].color.b, players[i].color.a,
+                            players[i].position.x, players[i].position.y);
+                    Vector2 sz = MeasureTextEx(font, txt, dbg_size, 1);
+                    if (sz.x > left_w) left_w = sz.x;
+                    left_h += 20;
+                }
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (!IsGamepadAvailable(i)) continue;
+                    left_h += 48;
+                    /* Approximate width from gp_size lines */
+                    Vector2 sz = MeasureTextEx(font, "gp0 stick=-1.00,-1.00 rstick=-1.00,-1.00", gp_size, 1);
+                    if (sz.x > left_w) left_w = sz.x;
+                }
+
+                /* Compute log ring width */
+                float log_size = 16.0f;
+                float log_w = 0;
+                float log_h = log_ring_count * 20.0f;
+                int start = (log_ring_count < LOG_RING_SIZE)
+                    ? 0 : log_ring_head;
+                for (int i = 0; i < log_ring_count; i++) {
+                    int idx = (start + i) % LOG_RING_SIZE;
+                    Vector2 sz = MeasureTextEx(font, log_ring[idx], log_size, 1);
+                    if (sz.x > log_w) log_w = sz.x;
+                }
+
+                /* Draw backdrops */
+                int pad = 6;
+                Color bg = {255, 255, 255, 200};
+                if (left_h > 0)
+                    DrawRectangle(10 - pad, 10 - pad,
+                                  (int)left_w + 2 * pad,
+                                  (int)left_h + 2 * pad, bg);
+                if (log_h > 0)
+                    DrawRectangle(screen_width - (int)log_w - 10 - pad,
+                                  10 - pad,
+                                  (int)log_w + 2 * pad,
+                                  (int)log_h + 2 * pad, bg);
+
+                /* Draw left panel text */
+                float y = 10;
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!players[i].active) continue;
                     const char *txt = TextFormat(
@@ -718,7 +767,6 @@ int main(void)
                     DrawTextEx(font, txt, (Vector2){10, y}, dbg_size, 1, BLACK);
                     y += 20;
                 }
-                float gp_size = 20.0f;
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!IsGamepadAvailable(i)) continue;
                     char btns[19] = {0};
@@ -742,12 +790,8 @@ int main(void)
                     y += 24;
                 }
 
-                /* Log ring — top-right corner, oldest first */
+                /* Draw log ring — top-right corner, oldest first */
                 float log_y = 10;
-                float log_size = 16.0f;
-                int start = (log_ring_count < LOG_RING_SIZE)
-                    ? 0
-                    : log_ring_head;
                 for (int i = 0; i < log_ring_count; i++) {
                     int idx = (start + i) % LOG_RING_SIZE;
                     Vector2 sz = MeasureTextEx(font, log_ring[idx], log_size, 1);
