@@ -14,6 +14,8 @@ fi
 LOGFILE="$(pwd)/tmp/start.log"
 mkdir -p "$(pwd)/tmp"
 exec > >(tee -a "$LOGFILE") 2>&1
+ts() { date +%s.%N; }
+T_START=$(ts)
 echo "=== start.sh $(date) ==="
 
 # Install system dependencies if missing.
@@ -81,8 +83,9 @@ needs_build() {
     return 1
 }
 
+echo "LOG: needs_build check at +$(echo "$(ts) - $T_START" | bc)s"
 if needs_build; then
-    echo "LOG: build needed"
+    echo "LOG: build needed at +$(echo "$(ts) - $T_START" | bc)s"
 
     # Prefer docker, fall back to podman, then native build
     CONTAINER_CMD=""
@@ -96,13 +99,13 @@ if needs_build; then
         echo "LOG: building with $CONTAINER_CMD..."
         mkdir -p build/Release
         $CONTAINER_CMD build --output=build/Release .
-        echo "LOG: container build finished"
+        echo "LOG: container build finished at +$(echo "$(ts) - $T_START" | bc)s"
     else
         echo "LOG: no container runtime, building natively with conan..."
 
         echo "LOG: installing deps..."
         install_deps || true
-        echo "LOG: deps done"
+        echo "LOG: deps done at +$(echo "$(ts) - $T_START" | bc)s"
 
         # Set up Python venv for conan
         VENV_DIR="$(pwd)/.venv"
@@ -111,23 +114,23 @@ if needs_build; then
             python3 -m venv "$VENV_DIR"
         fi
         source "$VENV_DIR/bin/activate"
-        echo "LOG: venv activated"
+        echo "LOG: venv activated at +$(echo "$(ts) - $T_START" | bc)s"
 
         command -v conan &>/dev/null || pip install conan
         conan profile path default &>/dev/null || conan profile detect
-        echo "LOG: conan ready"
+        echo "LOG: conan ready at +$(echo "$(ts) - $T_START" | bc)s"
 
         echo "LOG: conan install starting..."
         conan install . --output-folder=build --build=missing
-        echo "LOG: conan install done"
+        echo "LOG: conan install done at +$(echo "$(ts) - $T_START" | bc)s"
 
         echo "LOG: conan build starting..."
         conan build .
-        echo "LOG: conan build done"
+        echo "LOG: conan build done at +$(echo "$(ts) - $T_START" | bc)s"
     fi
 else
-    echo "LOG: binary up to date, skipping build"
+    echo "LOG: binary up to date, skipping build at +$(echo "$(ts) - $T_START" | bc)s"
 fi
 
-echo "LOG: launching kiddo"
+echo "LOG: launching kiddo at +$(echo "$(ts) - $T_START" | bc)s"
 exec ./build/Release/kiddo
