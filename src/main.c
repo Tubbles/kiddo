@@ -8,6 +8,8 @@
 
 #include "zlog.h"
 
+#include <stdio.h>
+
 int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
 
@@ -210,6 +212,32 @@ int main(void)
         }
 
         render_particles(particles.items, particles.count);
+
+        /* Debug overlay */
+        int y = 10;
+        DrawText(TextFormat("frame=%d fps=%d", frame, GetFPS()), 10, y, 20, WHITE);
+        y += 24;
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (!IsGamepadAvailable(i)) continue;
+            char btns[19] = {0};
+            for (int b = 0; b < 18; b++)
+                btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
+            DrawText(TextFormat("gp%d stick=%.2f,%.2f rstick=%.2f,%.2f",
+                    i,
+                    GetGamepadAxisMovement(i, 0),
+                    GetGamepadAxisMovement(i, 1),
+                    GetGamepadAxisMovement(i, 2),
+                    GetGamepadAxisMovement(i, 3)),
+                    10, y, 20, WHITE);
+            y += 24;
+            DrawText(TextFormat("     axes4,5=%.2f,%.2f btns=%s",
+                    GetGamepadAxisMovement(i, 4),
+                    GetGamepadAxisMovement(i, 5),
+                    btns),
+                    10, y, 20, WHITE);
+            y += 24;
+        }
+
         EndDrawing();
     }
 
