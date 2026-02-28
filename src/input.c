@@ -1,13 +1,14 @@
 #include "input.h"
 
-#include <stdio.h>
+#include "zlog.h"
+
 #include <stdlib.h>
 
 void input_load_mappings(const char *path)
 {
     FILE *f = fopen(path, "rb");
     if (!f) {
-        fprintf(stderr, "WARN: could not open gamepad mappings: %s\n", path);
+        dzlog_warn("could not open gamepad mappings: %s", path);
         return;
     }
 
@@ -17,7 +18,7 @@ void input_load_mappings(const char *path)
 
     char *buf = malloc(len + 1);
     if (!buf) {
-        fprintf(stderr, "WARN: could not allocate %ld bytes for mappings\n", len);
+        dzlog_warn("could not allocate %ld bytes for mappings", len);
         fclose(f);
         return;
     }
@@ -27,9 +28,8 @@ void input_load_mappings(const char *path)
     buf[read] = '\0';
 
     int result = SetGamepadMappings(buf);
-    fprintf(stderr, "LOG: loaded gamepad mappings from %s (%ld bytes, result=%d)\n",
+    dzlog_info("loaded gamepad mappings from %s (%ld bytes, result=%d)",
             path, len, result);
-    fflush(stderr);
 
     free(buf);
 }

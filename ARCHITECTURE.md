@@ -20,6 +20,7 @@ A minimal 2D shapes game for children ages 2-4, focused on hand-eye coordination
 | Package manager   | Conan 2                         |
 | Unit test framework | Unity (ThrowTheSwitch)        |
 | Mocking           | fff.h (Fake Function Framework) |
+| Logging           | zlog (vendored, Apache-2.0)     |
 
 Conan is the primary build orchestrator. CMake is generated/invoked by Conan. All external dependencies (raylib, Unity, fff) are declared as Conan packages.
 

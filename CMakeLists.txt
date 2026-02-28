@@ -6,6 +6,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 find_package(raylib REQUIRED)
 
+file(GLOB ZLOG_SOURCES src/vendor/zlog/*.c)
+add_library(zlog STATIC ${ZLOG_SOURCES})
+target_include_directories(zlog PUBLIC src/vendor/zlog)
+target_link_libraries(zlog PRIVATE pthread)
+
 add_executable(kiddo
     src/main.c
     src/shape.c
@@ -16,6 +21,6 @@ add_executable(kiddo
     src/collision.c
     src/audio.c
 )
-target_link_libraries(kiddo PRIVATE raylib)
+target_link_libraries(kiddo PRIVATE raylib zlog)
 
 add_subdirectory(test)

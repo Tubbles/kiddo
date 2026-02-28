@@ -6,7 +6,7 @@
 #include "player.h"
 #include "render.h"
 
-#include <stdio.h>
+#include "zlog.h"
 
 int screen_width = SCREEN_WIDTH_DEFAULT;
 int screen_height = SCREEN_HEIGHT_DEFAULT;
@@ -57,23 +57,22 @@ static InputState merge_input(InputState a, InputState b)
 
 int main(void)
 {
+    dzlog_init("assets/zlog.conf", "kiddo");
+
     InitWindow(SCREEN_WIDTH_DEFAULT, SCREEN_HEIGHT_DEFAULT, "Kiddo");
     HideCursor();
 
     int monitor = GetCurrentMonitor();
     int mon_w = GetMonitorWidth(monitor);
     int mon_h = GetMonitorHeight(monitor);
-    fprintf(stderr, "LOG: monitor=%d resolution=%dx%d\n", monitor, mon_w, mon_h);
-    fflush(stderr);
+    dzlog_info("monitor=%d resolution=%dx%d", monitor, mon_w, mon_h);
     if (mon_w > 0 && mon_h > 0) {
         screen_width = mon_w;
         screen_height = mon_h;
         SetWindowSize(screen_width, screen_height);
     }
     ToggleBorderlessWindowed();
-    fprintf(stderr, "LOG: screen_width=%d screen_height=%d\n",
-            screen_width, screen_height);
-    fflush(stderr);
+    dzlog_info("screen_width=%d screen_height=%d", screen_width, screen_height);
 
     input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
@@ -96,8 +95,7 @@ int main(void)
     float elapsed = 0.0f;
     int prev_gamepads = -1;
 
-    fprintf(stderr, "LOG: entering game loop\n");
-    fflush(stderr);
+    dzlog_info("entering game loop");
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -109,15 +107,15 @@ int main(void)
             int active = 0;
             for (int i = 0; i < MAX_PLAYERS; i++)
                 if (players[i].active) active++;
-            fprintf(stderr, "LOG: frame=%d t=%.1fs dt=%.4f fps=%d "
-                    "players=%d particles=%d\n",
+            dzlog_debug("frame=%d t=%.1fs dt=%.4f fps=%d "
+                    "players=%d particles=%d",
                     frame, elapsed, dt, GetFPS(), active, particles.count);
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (IsGamepadAvailable(i)) {
                     InputState dbg = input_read(i);
-                    fprintf(stderr, "LOG: gp%d stick=(%.2f,%.2f) "
+                    dzlog_debug("gp%d stick=(%.2f,%.2f) "
                             "rstick=(%.2f,%.2f) lt=%.2f rt=%.2f "
-                            "btn=%d%d%d%d pos=(%.0f,%.0f)\n", i,
+                            "btn=%d%d%d%d pos=(%.0f,%.0f)", i,
                             dbg.left_stick.x, dbg.left_stick.y,
                             dbg.right_stick.x, dbg.right_stick.y,
                             dbg.left_trigger, dbg.right_trigger,
@@ -126,20 +124,17 @@ int main(void)
                             players[i].position.x, players[i].position.y);
                 }
             }
-            fflush(stderr);
         }
 
         /* Log gamepad connect/disconnect */
         int gamepads = input_count_gamepads();
         if (gamepads != prev_gamepads) {
-            fprintf(stderr, "LOG: gamepads %d -> %d (frame=%d)\n",
+            dzlog_info("gamepads %d -> %d (frame=%d)",
                     prev_gamepads, gamepads, frame);
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (IsGamepadAvailable(i))
-                    fprintf(stderr, "LOG: gamepad %d: %s\n",
-                            i, GetGamepadName(i));
+                    dzlog_info("gamepad %d: %s", i, GetGamepadName(i));
             }
-            fflush(stderr);
             prev_gamepads = gamepads;
         }
 
@@ -208,12 +203,10 @@ int main(void)
     }
 
 quit:
-    fprintf(stderr, "LOG: exiting game loop (frame=%d t=%.1fs)\n", frame, elapsed);
-    fflush(stderr);
+    dzlog_info("exiting game loop (frame=%d t=%.1fs)", frame, elapsed);
     particles_free(&particles);
     audio_shutdown();
     CloseWindow();
-    fprintf(stderr, "LOG: shutdown complete\n");
-    fflush(stderr);
+    zlog_fini();
     return 0;
 }
