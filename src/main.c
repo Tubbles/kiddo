@@ -111,12 +111,12 @@ static void reset_game_state(PlayerState *players, ParticlePool *particles,
     memset(prev_colliding, 0, sizeof(bool) * MAX_PLAYERS * MAX_PLAYERS);
 }
 
-static bool select_pressed_solo(int gamepad_id)
+static bool start_pressed_solo(int gamepad_id)
 {
     if (!IsGamepadAvailable(gamepad_id))
         return false;
-    return IsGamepadButtonPressed(gamepad_id, GAMEPAD_BUTTON_MIDDLE_LEFT)
-        && !IsGamepadButtonDown(gamepad_id, GAMEPAD_BUTTON_MIDDLE_RIGHT);
+    return IsGamepadButtonPressed(gamepad_id, GAMEPAD_BUTTON_MIDDLE_RIGHT)
+        && !IsGamepadButtonDown(gamepad_id, GAMEPAD_BUTTON_MIDDLE_LEFT);
 }
 
 static Rectangle randomize_parking_lot(void)
@@ -260,7 +260,12 @@ int main(void)
                 goto quit;
         }
 
-        /* Toggle debug overlay with F3 */
+        /* Toggle debug overlay with Select or F3 */
+        for (int i = 0; i < MAX_PLAYERS; i++) {
+            if (IsGamepadAvailable(i) &&
+                IsGamepadButtonPressed(i, GAMEPAD_BUTTON_MIDDLE_LEFT))
+                debug_visible = !debug_visible;
+        }
         if (IsKeyPressed(KEY_F3))
             debug_visible = !debug_visible;
 
@@ -350,10 +355,10 @@ int main(void)
         } else {
             /* --- Game scene --- */
 
-            /* Return to menu on Select (solo, without Start) */
+            /* Return to menu on Start (solo, without Select) */
             for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (select_pressed_solo(i)) {
-                    dzlog_info("returning to menu via Select (gp%d)", i);
+                if (start_pressed_solo(i)) {
+                    dzlog_info("returning to menu via Start (gp%d)", i);
                     log_ring_push("returning to menu");
                     scene = SCENE_MENU;
                 }
