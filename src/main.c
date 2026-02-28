@@ -234,49 +234,52 @@ static void resolve_wall_collision(PlayerState *player, float angle_deg,
     player->position.y += push_axis.y * min_overlap;
 }
 
-static void resolve_arena_collision(PlayerState *player, float margin)
+static void resolve_arena_collision(PlayerState *player, float angle_deg)
 {
-    float left   = ARENA_PAD + margin;
-    float right  = screen_width - ARENA_PAD - margin;
-    float top    = ARENA_PAD + margin;
-    float bottom = screen_height - ARENA_PAD - margin;
-    float r      = ARENA_RADIUS;
+    float thick = 200.0f;
+    float r = ARENA_RADIUS;
+    float w = (float)screen_width;
+    float h = (float)screen_height;
 
-    /* Straight edges */
-    if (player->position.x < left)
-        player->position.x = left;
-    if (player->position.x > right)
-        player->position.x = right;
-    if (player->position.y < top)
-        player->position.y = top;
-    if (player->position.y > bottom)
-        player->position.y = bottom;
-
-    /* Corner arcs */
-    Vector2 corner_centers[4] = {
-        {ARENA_PAD + r,                    ARENA_PAD + r},
-        {screen_width - ARENA_PAD - r,     ARENA_PAD + r},
-        {ARENA_PAD + r,                    screen_height - ARENA_PAD - r},
-        {screen_width - ARENA_PAD - r,     screen_height - ARENA_PAD - r},
+    /* 4 edge walls just outside the arena */
+    Rectangle edge_walls[4] = {
+        {ARENA_PAD - thick, ARENA_PAD,         thick, h - 2 * ARENA_PAD}, /* left */
+        {w - ARENA_PAD,     ARENA_PAD,         thick, h - 2 * ARENA_PAD}, /* right */
+        {ARENA_PAD,         ARENA_PAD - thick,  w - 2 * ARENA_PAD, thick}, /* top */
+        {ARENA_PAD,         h - ARENA_PAD,      w - 2 * ARENA_PAD, thick}, /* bottom */
     };
-    float allowed = r - margin;
-    if (allowed < 0) allowed = 0;
-    for (int i = 0; i < 4; i++) {
-        float dx = player->position.x - corner_centers[i].x;
-        float dy = player->position.y - corner_centers[i].y;
-        /* Only check if we're actually in the corner quadrant */
-        bool in_corner = false;
-        if (i == 0) in_corner = dx < 0 && dy < 0;
-        if (i == 1) in_corner = dx > 0 && dy < 0;
-        if (i == 2) in_corner = dx < 0 && dy > 0;
-        if (i == 3) in_corner = dx > 0 && dy > 0;
-        if (!in_corner) continue;
+    for (int i = 0; i < 4; i++)
+        resolve_wall_collision(player, angle_deg, edge_walls[i]);
 
-        float dist = sqrtf(dx * dx + dy * dy);
-        if (dist > allowed && dist > 0.001f) {
-            float s = allowed / dist;
-            player->position.x = corner_centers[i].x + dx * s;
-            player->position.y = corner_centers[i].y + dy * s;
+    /* Corner arcs — push OBB corners inside the arc */
+    Vector2 corner_centers[4] = {
+        {ARENA_PAD + r,     ARENA_PAD + r},
+        {w - ARENA_PAD - r, ARENA_PAD + r},
+        {ARENA_PAD + r,     h - ARENA_PAD - r},
+        {w - ARENA_PAD - r, h - ARENA_PAD - r},
+    };
+    for (int c = 0; c < 4; c++) {
+        /* Check each OBB corner against the arc */
+        Vector2 obb[4];
+        car_obb_corners(player->position, angle_deg, obb);
+        for (int j = 0; j < 4; j++) {
+            float dx = obb[j].x - corner_centers[c].x;
+            float dy = obb[j].y - corner_centers[c].y;
+            bool in_corner = false;
+            if (c == 0) in_corner = dx < 0 && dy < 0;
+            if (c == 1) in_corner = dx > 0 && dy < 0;
+            if (c == 2) in_corner = dx < 0 && dy > 0;
+            if (c == 3) in_corner = dx > 0 && dy > 0;
+            if (!in_corner) continue;
+
+            float dist = sqrtf(dx * dx + dy * dy);
+            if (dist > r && dist > 0.001f) {
+                float push = dist - r;
+                float nx = dx / dist;
+                float ny = dy / dist;
+                player->position.x -= nx * push;
+                player->position.y -= ny * push;
+            }
         }
     }
 }
@@ -552,10 +555,9 @@ int main(void)
             /* Arena boundary collision (all modes) */
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (!players[i].active) continue;
-                float margin = (game_mode == MODE_PARK)
-                    ? CAR_HALF_H
-                    : SHAPE_BASE_SIZE * players[i].scale;
-                resolve_arena_collision(&players[i], margin);
+                float angle = (game_mode == MODE_PARK)
+                    ? car_angles[i] : 0.0f;
+                resolve_arena_collision(&players[i], angle);
             }
 
             if (game_mode == MODE_FREE_PLAY) {
