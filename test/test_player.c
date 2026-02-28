@@ -32,9 +32,8 @@ void test_player_clamps_to_screen(void)
     input.left_stick.y = -1.0f;
 
     PlayerState next = player_update(p, input, 10.0f);
-    float margin = SHAPE_BASE_SIZE * next.scale;
-    TEST_ASSERT_TRUE(next.position.x >= margin);
-    TEST_ASSERT_TRUE(next.position.y >= margin);
+    TEST_ASSERT_TRUE(next.position.x >= 0);
+    TEST_ASSERT_TRUE(next.position.y >= 0);
 }
 
 void test_player_rotation(void)

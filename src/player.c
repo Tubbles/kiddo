@@ -48,9 +48,8 @@ PlayerState player_update(PlayerState state, InputState input, float dt)
     state.scale += scale_input * PLAYER_SCALE_SPEED * dt;
     state.scale = clampf(state.scale, PLAYER_SCALE_MIN, PLAYER_SCALE_MAX);
 
-    float margin = SHAPE_BASE_SIZE * state.scale;
-    state.position.x = clampf(state.position.x, margin, screen_width - margin);
-    state.position.y = clampf(state.position.y, margin, screen_height - margin);
+    state.position.x = clampf(state.position.x, 0, screen_width);
+    state.position.y = clampf(state.position.y, 0, screen_height);
 
     if (input.buttons[0])
         state.color = next_color(state.color);

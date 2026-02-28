@@ -60,7 +60,7 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define WALL_SHORT_MIN 20.0f
 #define WALL_SHORT_MAX 40.0f
 #define WALL_MARGIN 80.0f
-#define ARENA_PAD 0.0f
+#define ARENA_PAD 20.0f
 #define ARENA_RADIUS 80.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
@@ -241,21 +241,16 @@ static void resolve_arena_collision(PlayerState *player)
     float top    = ARENA_PAD;
     float bottom = screen_height - ARENA_PAD;
     float r      = ARENA_RADIUS;
-    float margin = CAR_HALF_H;
 
     /* Straight edges */
-    if (player->position.x < left + r + margin)
-        if (player->position.y > top + r && player->position.y < bottom - r)
-            player->position.x = left + r + margin;
-    if (player->position.x > right - r - margin)
-        if (player->position.y > top + r && player->position.y < bottom - r)
-            player->position.x = right - r - margin;
-    if (player->position.y < top + r + margin)
-        if (player->position.x > left + r && player->position.x < right - r)
-            player->position.y = top + r + margin;
-    if (player->position.y > bottom - r - margin)
-        if (player->position.x > left + r && player->position.x < right - r)
-            player->position.y = bottom - r - margin;
+    if (player->position.x < left)
+        player->position.x = left;
+    if (player->position.x > right)
+        player->position.x = right;
+    if (player->position.y < top)
+        player->position.y = top;
+    if (player->position.y > bottom)
+        player->position.y = bottom;
 
     /* Corner arcs */
     Vector2 corners[4] = {
@@ -264,7 +259,7 @@ static void resolve_arena_collision(PlayerState *player)
         {left + r,  bottom - r},
         {right - r, bottom - r},
     };
-    float allowed = r - margin;
+    float allowed = r;
     for (int i = 0; i < 4; i++) {
         float dx = player->position.x - corners[i].x;
         float dy = player->position.y - corners[i].y;
