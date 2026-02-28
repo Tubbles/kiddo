@@ -112,6 +112,20 @@ int main(void)
             fprintf(stderr, "LOG: frame=%d t=%.1fs dt=%.4f fps=%d "
                     "players=%d particles=%d\n",
                     frame, elapsed, dt, GetFPS(), active, particles.count);
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (IsGamepadAvailable(i)) {
+                    InputState dbg = input_read(i);
+                    fprintf(stderr, "LOG: gp%d stick=(%.2f,%.2f) "
+                            "rstick=(%.2f,%.2f) lt=%.2f rt=%.2f "
+                            "btn=%d%d%d%d pos=(%.0f,%.0f)\n", i,
+                            dbg.left_stick.x, dbg.left_stick.y,
+                            dbg.right_stick.x, dbg.right_stick.y,
+                            dbg.left_trigger, dbg.right_trigger,
+                            dbg.buttons[0], dbg.buttons[1],
+                            dbg.buttons[2], dbg.buttons[3],
+                            players[i].position.x, players[i].position.y);
+                }
+            }
             fflush(stderr);
         }
 
