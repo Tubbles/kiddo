@@ -116,6 +116,7 @@ int main(void)
     float elapsed = 0.0f;
     int prev_gamepads = -1;
     bool debug_visible = false;
+    bool prev_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
 
     dzlog_info("entering game loop");
     log_ring_push("entering game loop");
@@ -230,10 +231,18 @@ int main(void)
         CollisionEvent collisions[MAX_COLLISIONS];
         int collision_count = collision_detect(players, MAX_PLAYERS,
                                                collisions, MAX_COLLISIONS);
+        bool cur_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
         for (int i = 0; i < collision_count; i++) {
-            particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
-            audio_play(SOUND_COLLISION);
+            int a = collisions[i].player_a;
+            int b = collisions[i].player_b;
+            cur_colliding[a][b] = true;
+            cur_colliding[b][a] = true;
+            if (!prev_colliding[a][b]) {
+                particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
+                audio_play(SOUND_COLLISION);
+            }
         }
+        memcpy(prev_colliding, cur_colliding, sizeof(prev_colliding));
 
         particles_update(&particles, dt);
 
