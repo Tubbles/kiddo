@@ -22,8 +22,8 @@ static void draw_star(Vector2 pos, float size, float rotation, Color color)
         Vector2 inner1 = {pos.x + cosf(angle2) * inner, pos.y + sinf(angle2) * inner};
         Vector2 outer2 = {pos.x + cosf(angle3) * outer, pos.y + sinf(angle3) * outer};
 
-        DrawTriangle(outer1, inner1, pos, color);
-        DrawTriangle(inner1, outer2, pos, color);
+        DrawTriangle(pos, inner1, outer1, color);
+        DrawTriangle(pos, outer2, inner1, color);
     }
 }
 
@@ -37,8 +37,8 @@ static void draw_rotated_square(Vector2 pos, float size, float rotation, Color c
         corners[i] = (Vector2){pos.x + cosf(a) * size, pos.y + sinf(a) * size};
     }
 
-    DrawTriangle(corners[0], corners[1], corners[2], color);
-    DrawTriangle(corners[0], corners[2], corners[3], color);
+    DrawTriangle(corners[2], corners[1], corners[0], color);
+    DrawTriangle(corners[3], corners[2], corners[0], color);
 }
 
 static void draw_rotated_triangle(Vector2 pos, float size, float rotation, Color color)
@@ -48,7 +48,7 @@ static void draw_rotated_triangle(Vector2 pos, float size, float rotation, Color
         float a = rotation + (float)i * 2.0f * PI / 3.0f - PI / 2.0f;
         verts[i] = (Vector2){pos.x + cosf(a) * size, pos.y + sinf(a) * size};
     }
-    DrawTriangle(verts[0], verts[1], verts[2], color);
+    DrawTriangle(verts[2], verts[1], verts[0], color);
 }
 
 void render_shape(ShapeKind kind, Vector2 pos, float rotation, float scale, Color color)
