@@ -267,6 +267,7 @@ int main(void)
     GameMode game_mode = MODE_FREE_PLAY;
     bool game_started = false;
     int menu_selection = 0;
+    int menu_frame = 0;
     bool prev_stick_up = false;
     bool prev_stick_down = false;
 
@@ -389,9 +390,11 @@ int main(void)
             if (menu_selection >= MENU_ITEM_COUNT)
                 menu_selection = 0;
 
-            /* Resume current game: Start or right-face-button (back) */
+            /* Resume current game: Start or right-face-button (back)
+             * Skip on the first menu frame to avoid the same press that
+             * opened the menu from immediately closing it. */
             bool resume = false;
-            if (game_started) {
+            if (game_started && menu_frame > 0) {
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (start_pressed_solo(i))
                         resume = true;
@@ -402,6 +405,7 @@ int main(void)
                 if (IsKeyPressed(KEY_ESCAPE))
                     resume = true;
             }
+            menu_frame++;
             if (resume) {
                 dzlog_info("menu: resuming game");
                 log_ring_push("menu: resuming");
@@ -481,10 +485,13 @@ int main(void)
                     dzlog_info("returning to menu via Start (gp%d)", i);
                     log_ring_push("returning to menu");
                     scene = SCENE_MENU;
+                    menu_frame = 0;
                 }
             }
-            if (IsKeyPressed(KEY_ESCAPE))
+            if (IsKeyPressed(KEY_ESCAPE)) {
                 scene = SCENE_MENU;
+                menu_frame = 0;
+            }
 
             if (scene == SCENE_MENU)
                 continue;
