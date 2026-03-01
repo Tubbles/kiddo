@@ -1,16 +1,16 @@
 # Multi-stage build: produces a portable Linux binary via
 #   docker build --output=build/Release .
 #
-# Build stage uses Ubuntu 22.04 (glibc 2.35) for broad compatibility
-# including Steam Deck (Arch), modern Ubuntu/Fedora, etc.
+# Build stage uses Ubuntu 24.04 (glibc 2.39) for clang-20 with C23 #embed support
 
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04 AS build
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake ninja-build pkg-config \
     python3 python3-venv python3-pip \
+    clang-20 \
     libgl-dev \
     libx11-dev libx11-xcb-dev libfontenc-dev libice-dev libsm-dev \
     libxaw7-dev libxcomposite-dev libxcursor-dev libxdamage-dev \
@@ -27,6 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcb-util-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Set clang-20 as default clang
+RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-20 100 \
+    && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 100
+
 WORKDIR /src
 
 # Install conan in a venv
@@ -38,11 +42,17 @@ RUN pip install --no-cache-dir conan
 COPY conanfile.py CMakeLists.txt ./
 COPY test/CMakeLists.txt test/CMakeLists.txt
 
-# Detect profile and install conan deps (cached unless conanfile.py changes)
+# Configure conan profile for clang-20 and install deps
 RUN conan profile detect \
+    && sed -i 's/compiler=gcc/compiler=clang/' ~/.conan2/profiles/default \
+    && sed -i 's/compiler.version=.*/compiler.version=20/' ~/.conan2/profiles/default \
+    && sed -i '/compiler.cppstd/d' ~/.conan2/profiles/default \
+    && printf '\n[conf]\ntools.build:compiler_executables={"c": "clang", "cpp": "clang++"}\n' >> ~/.conan2/profiles/default \
+    && sed -i '/"18":/a\                "19":\n                "20":' ~/.conan2/settings.yml \
     && conan install . --output-folder=build --build=missing
 
-# Copy the rest of the source
+# Copy the rest of the source and assets
+COPY assets/ assets/
 COPY src/ src/
 COPY test/ test/
 

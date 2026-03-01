@@ -4,6 +4,7 @@
 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define STICK_DEADZONE 0.15f
 
@@ -16,32 +17,20 @@ static Vector2 apply_deadzone(Vector2 stick, float deadzone)
     return (Vector2){stick.x * scale, stick.y * scale};
 }
 
-void input_load_mappings(const char *path)
+void input_load_mappings(const char *data, int size)
 {
-    FILE *f = fopen(path, "rb");
-    if (!f) {
-        dzlog_warn("could not open gamepad mappings: %s", path);
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    char *buf = malloc(len + 1);
+    char *buf = malloc(size + 1);
     if (!buf) {
-        dzlog_warn("could not allocate %ld bytes for mappings", len);
-        fclose(f);
+        dzlog_warn("could not allocate %d bytes for mappings", size);
         return;
     }
 
-    size_t read = fread(buf, 1, len, f);
-    fclose(f);
-    buf[read] = '\0';
+    memcpy(buf, data, size);
+    buf[size] = '\0';
 
     int result = SetGamepadMappings(buf);
-    dzlog_info("loaded gamepad mappings from %s (%ld bytes, result=%d)",
-            path, len, result);
+    dzlog_info("loaded embedded gamepad mappings (%d bytes, result=%d)",
+            size, result);
 
     free(buf);
 }

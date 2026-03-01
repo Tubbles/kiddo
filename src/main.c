@@ -10,6 +10,7 @@
 #include "particle.h"
 #include "player.h"
 #include "render.h"
+#include "assets.h"
 
 #include "zlog.h"
 
@@ -196,7 +197,14 @@ static void reset_entities_park(Texture2D *car_textures, int tex_count,
 
 int main(void)
 {
-    dzlog_init("assets/zlog.conf", "kiddo");
+    /* Init zlog from embedded config string */
+    {
+        char zlog_conf[sizeof(asset_zlog_conf) + 1];
+        memcpy(zlog_conf, asset_zlog_conf, sizeof(asset_zlog_conf));
+        zlog_conf[sizeof(asset_zlog_conf)] = '\0';
+        zlog_init_from_string(zlog_conf);
+        dzlog_set_category("kiddo");
+    }
 
     InitWindow(SCREEN_WIDTH_DEFAULT, SCREEN_HEIGHT_DEFAULT, "Kiddo");
     HideCursor();
@@ -213,28 +221,33 @@ int main(void)
     ToggleBorderlessWindowed();
     dzlog_info("screen_width=%d screen_height=%d", screen_width, screen_height);
 
-    Font font = LoadFontEx("assets/Fredoka.ttf", 120, NULL, 0);
+    Font font = LoadFontFromMemory(".ttf", asset_font_fredoka,
+                                    sizeof(asset_font_fredoka), 120, NULL, 0);
     SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
 
-    const char *car_tex_paths[] = {
-        "assets/taxi.png",
-        "assets/audi.png",
-        "assets/police.png",
-        "assets/ambulance.png",
-        "assets/mini_truck.png",
-        "assets/truck.png",
-        "assets/black_viper.png",
-        "assets/mini_van.png",
-        "assets/car.png",
+    struct { const unsigned char *data; int size; } car_tex_assets[] = {
+        {asset_tex_taxi, sizeof(asset_tex_taxi)},
+        {asset_tex_audi, sizeof(asset_tex_audi)},
+        {asset_tex_police, sizeof(asset_tex_police)},
+        {asset_tex_ambulance, sizeof(asset_tex_ambulance)},
+        {asset_tex_mini_truck, sizeof(asset_tex_mini_truck)},
+        {asset_tex_truck, sizeof(asset_tex_truck)},
+        {asset_tex_black_viper, sizeof(asset_tex_black_viper)},
+        {asset_tex_mini_van, sizeof(asset_tex_mini_van)},
+        {asset_tex_car, sizeof(asset_tex_car)},
     };
-    #define CAR_TEX_COUNT ((int)(sizeof(car_tex_paths) / sizeof(car_tex_paths[0])))
+    #define CAR_TEX_COUNT ((int)(sizeof(car_tex_assets) / sizeof(car_tex_assets[0])))
     Texture2D car_textures[CAR_TEX_COUNT];
     for (int i = 0; i < CAR_TEX_COUNT; i++) {
-        car_textures[i] = LoadTexture(car_tex_paths[i]);
+        Image img = LoadImageFromMemory(".png", car_tex_assets[i].data,
+                                        car_tex_assets[i].size);
+        car_textures[i] = LoadTextureFromImage(img);
+        UnloadImage(img);
         SetTextureFilter(car_textures[i], TEXTURE_FILTER_BILINEAR);
     }
 
-    input_load_mappings("assets/gamecontrollerdb.txt");
+    input_load_mappings((const char *)asset_gamecontrollerdb,
+                        sizeof(asset_gamecontrollerdb));
     SetTargetFPS(60);
     audio_init();
 
