@@ -5,7 +5,7 @@
 #include <float.h>
 
 #define ARENA_PAD 20.0f
-#define ARENA_RADIUS 80.0f
+#define ARENA_ROUNDNESS 0.05f
 
 void project_corners(const Vector2 *corners, int count,
                      Vector2 axis, float *mn, float *mx)
@@ -389,9 +389,11 @@ Vector2 resolve_composite_wall(const CollisionShape *shape, Vector2 pos, float a
 void resolve_arena_composite(const CollisionShape *shape, Vector2 *pos, float angle)
 {
     float thick = 200.0f;
-    float r = ARENA_RADIUS;
     float w = (float)screen_width;
     float h = (float)screen_height;
+    float arena_w = w - 2 * ARENA_PAD;
+    float arena_h = h - 2 * ARENA_PAD;
+    float r = fminf(arena_w, arena_h) * ARENA_ROUNDNESS * 0.5f;
 
     /* 4 edge walls */
     Rectangle edge_walls[4] = {
