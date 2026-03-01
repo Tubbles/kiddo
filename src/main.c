@@ -172,25 +172,31 @@ static void project_corners(const Vector2 *corners, int count,
     }
 }
 
-static void car_obb_corners(Vector2 center, float angle_deg,
-                            Vector2 *out)
+static void obb_corners(Vector2 center, float angle_deg,
+                        float half_w, float half_h, Vector2 *out)
 {
     float rad = angle_deg * DEG2RAD;
     float c = cosf(rad), s = sinf(rad);
     Vector2 ax = {c, s};
     Vector2 ay = {-s, c};
-    out[0] = (Vector2){center.x - CAR_HALF_W*ax.x - CAR_HALF_H*ay.x,
-                       center.y - CAR_HALF_W*ax.y - CAR_HALF_H*ay.y};
-    out[1] = (Vector2){center.x + CAR_HALF_W*ax.x - CAR_HALF_H*ay.x,
-                       center.y + CAR_HALF_W*ax.y - CAR_HALF_H*ay.y};
-    out[2] = (Vector2){center.x + CAR_HALF_W*ax.x + CAR_HALF_H*ay.x,
-                       center.y + CAR_HALF_W*ax.y + CAR_HALF_H*ay.y};
-    out[3] = (Vector2){center.x - CAR_HALF_W*ax.x + CAR_HALF_H*ay.x,
-                       center.y - CAR_HALF_W*ax.y + CAR_HALF_H*ay.y};
+    out[0] = (Vector2){center.x - half_w*ax.x - half_h*ay.x,
+                       center.y - half_w*ax.y - half_h*ay.y};
+    out[1] = (Vector2){center.x + half_w*ax.x - half_h*ay.x,
+                       center.y + half_w*ax.y - half_h*ay.y};
+    out[2] = (Vector2){center.x + half_w*ax.x + half_h*ay.x,
+                       center.y + half_w*ax.y + half_h*ay.y};
+    out[3] = (Vector2){center.x - half_w*ax.x + half_h*ay.x,
+                       center.y - half_w*ax.y + half_h*ay.y};
 }
 
-static void resolve_wall_collision(PlayerState *player, float angle_deg,
-                                   Rectangle wall)
+static void car_obb_corners(Vector2 center, float angle_deg, Vector2 *out)
+{
+    obb_corners(center, angle_deg, CAR_HALF_W, CAR_HALF_H, out);
+}
+
+static void resolve_wall_collision_ex(PlayerState *player, float angle_deg,
+                                      float half_w, float half_h,
+                                      Rectangle wall)
 {
     float rad = angle_deg * DEG2RAD;
     float c = cosf(rad), s = sinf(rad);
@@ -198,7 +204,7 @@ static void resolve_wall_collision(PlayerState *player, float angle_deg,
     Vector2 car_ay = {-s, c};
 
     Vector2 car_corners[4];
-    car_obb_corners(player->position, angle_deg, car_corners);
+    obb_corners(player->position, angle_deg, half_w, half_h, car_corners);
 
     Vector2 wall_corners[4] = {
         {wall.x, wall.y},
@@ -234,7 +240,8 @@ static void resolve_wall_collision(PlayerState *player, float angle_deg,
     player->position.y += push_axis.y * min_overlap;
 }
 
-static void resolve_arena_collision(PlayerState *player, float angle_deg)
+static void resolve_arena_collision(PlayerState *player, float angle_deg,
+                                    float half_w, float half_h)
 {
     float thick = 200.0f;
     float r = ARENA_RADIUS;
@@ -249,7 +256,8 @@ static void resolve_arena_collision(PlayerState *player, float angle_deg)
         {ARENA_PAD,         h - ARENA_PAD,      w - 2 * ARENA_PAD, thick}, /* bottom */
     };
     for (int i = 0; i < 4; i++)
-        resolve_wall_collision(player, angle_deg, edge_walls[i]);
+        resolve_wall_collision_ex(player, angle_deg, half_w, half_h,
+                                  edge_walls[i]);
 
     /* Corner arcs — push OBB corners inside the arc */
     Vector2 corner_centers[4] = {
@@ -259,12 +267,11 @@ static void resolve_arena_collision(PlayerState *player, float angle_deg)
         {w - ARENA_PAD - r, h - ARENA_PAD - r},
     };
     for (int c = 0; c < 4; c++) {
-        /* Check each OBB corner against the arc */
-        Vector2 obb[4];
-        car_obb_corners(player->position, angle_deg, obb);
+        Vector2 ob[4];
+        obb_corners(player->position, angle_deg, half_w, half_h, ob);
         for (int j = 0; j < 4; j++) {
-            float dx = obb[j].x - corner_centers[c].x;
-            float dy = obb[j].y - corner_centers[c].y;
+            float dx = ob[j].x - corner_centers[c].x;
+            float dy = ob[j].y - corner_centers[c].y;
             bool in_corner = false;
             if (c == 0) in_corner = dx < 0 && dy < 0;
             if (c == 1) in_corner = dx > 0 && dy < 0;
@@ -555,9 +562,15 @@ int main(void)
             /* Arena boundary collision (all modes) */
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (!players[i].active) continue;
-                float angle = (game_mode == MODE_PARK)
-                    ? car_angles[i] : 0.0f;
-                resolve_arena_collision(&players[i], angle);
+                if (game_mode == MODE_PARK) {
+                    resolve_arena_collision(&players[i], car_angles[i],
+                                            CAR_HALF_W, CAR_HALF_H);
+                } else {
+                    float sz = SHAPE_BASE_SIZE * players[i].scale;
+                    resolve_arena_collision(&players[i],
+                                            players[i].rotation * RAD2DEG,
+                                            sz, sz);
+                }
             }
 
             if (game_mode == MODE_FREE_PLAY) {
@@ -596,8 +609,9 @@ int main(void)
 
                     /* Wall collision */
                     for (int w = 0; w < MAX_WALLS; w++)
-                        resolve_wall_collision(&players[i], car_angles[i],
-                                               walls[w]);
+                        resolve_wall_collision_ex(&players[i], car_angles[i],
+                                                   CAR_HALF_W, CAR_HALF_H,
+                                                   walls[w]);
 
                     /* Check parking — car OBB overlaps parking lot */
                     Rectangle car_aabb = {
@@ -692,21 +706,19 @@ int main(void)
                     if (!players[i].active) continue;
                     Color bc = {players[i].color.r, players[i].color.g,
                                 players[i].color.b, 80};
+                    Vector2 corners[4];
                     if (game_mode == MODE_PARK) {
-                        /* Rotated car OBB */
-                        Vector2 corners[4];
                         car_obb_corners(players[i].position,
                                         car_angles[i], corners);
-                        for (int j = 0; j < 4; j++) {
-                            int k = (j + 1) % 4;
-                            DrawLineEx(corners[j], corners[k], 2, bc);
-                        }
                     } else {
-                        /* Circle bound for shapes */
-                        float r = SHAPE_BASE_SIZE * players[i].scale;
-                        DrawCircleLines((int)players[i].position.x,
-                                        (int)players[i].position.y,
-                                        r, bc);
+                        float sz = SHAPE_BASE_SIZE * players[i].scale;
+                        obb_corners(players[i].position,
+                                    players[i].rotation * RAD2DEG,
+                                    sz, sz, corners);
+                    }
+                    for (int j = 0; j < 4; j++) {
+                        int k = (j + 1) % 4;
+                        DrawLineEx(corners[j], corners[k], 2, bc);
                     }
                 }
 
