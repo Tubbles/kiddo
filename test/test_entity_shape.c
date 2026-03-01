@@ -37,9 +37,10 @@ void test_entity_shape_get_collision_shape(void)
     e.vtable->get_collision_shape(&e, &cs);
     TEST_ASSERT_EQUAL_INT(1, cs.count);
     TEST_ASSERT_EQUAL_INT(COLLIDER_RECT, cs.prims[0].kind);
-    float sz = SHAPE_BASE_SIZE;
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_w);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_h);
+    float half = SHAPE_BASE_SIZE * 0.7071f;
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, half, cs.prims[0].rect.half_w);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, half, cs.prims[0].rect.half_h);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 45.0f, cs.prims[0].angle_offset);
 }
 
 void test_entity_shape_circle_collider(void)
