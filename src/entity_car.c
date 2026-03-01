@@ -43,16 +43,21 @@ static void car_render(const Entity *e)
     DrawTexturePro(*tex, src, dst, origin, e->car.facing_angle, e->color);
 }
 
-static void car_get_obb(const Entity *e, Vector2 *corners)
+static void car_get_collision_shape(const Entity *e, CollisionShape *out)
 {
-    obb_corners(e->position, e->car.facing_angle,
-                CAR_HALF_W, CAR_HALF_H, corners);
+    *out = (CollisionShape){0};
+    out->count = 1;
+    out->prims[0].kind = COLLIDER_RECT;
+    out->prims[0].offset = (Vector2){0, 0};
+    out->prims[0].angle_offset = e->car.facing_angle;
+    out->prims[0].rect.half_w = CAR_HALF_W;
+    out->prims[0].rect.half_h = CAR_HALF_H;
 }
 
 static const EntityVTable car_vtable = {
     .update = car_update,
     .render = car_render,
-    .get_obb = car_get_obb,
+    .get_collision_shape = car_get_collision_shape,
 };
 
 Entity entity_car_init(int gamepad_id, Vector2 pos, Color color, Texture2D *tex)

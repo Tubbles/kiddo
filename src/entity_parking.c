@@ -15,19 +15,22 @@ static void parking_render(const Entity *e)
                80.0f, 1, WHITE);
 }
 
-static void parking_get_obb(const Entity *e, Vector2 *corners)
+static void parking_get_collision_shape(const Entity *e, CollisionShape *out)
 {
     Rectangle r = e->parking.rect;
-    corners[0] = (Vector2){r.x, r.y};
-    corners[1] = (Vector2){r.x + r.width, r.y};
-    corners[2] = (Vector2){r.x + r.width, r.y + r.height};
-    corners[3] = (Vector2){r.x, r.y + r.height};
+    *out = (CollisionShape){0};
+    out->count = 1;
+    out->prims[0].kind = COLLIDER_RECT;
+    out->prims[0].offset = (Vector2){0, 0};
+    out->prims[0].angle_offset = 0;
+    out->prims[0].rect.half_w = r.width / 2;
+    out->prims[0].rect.half_h = r.height / 2;
 }
 
 static const EntityVTable parking_vtable = {
     .update = NULL,
     .render = parking_render,
-    .get_obb = parking_get_obb,
+    .get_collision_shape = parking_get_collision_shape,
 };
 
 Entity entity_parking_init(Rectangle rect, Font *font)

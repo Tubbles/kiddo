@@ -7,19 +7,22 @@ static void wall_render(const Entity *e)
     DrawRectangleRec(e->wall.rect, DARKGRAY);
 }
 
-static void wall_get_obb(const Entity *e, Vector2 *corners)
+static void wall_get_collision_shape(const Entity *e, CollisionShape *out)
 {
     Rectangle r = e->wall.rect;
-    corners[0] = (Vector2){r.x, r.y};
-    corners[1] = (Vector2){r.x + r.width, r.y};
-    corners[2] = (Vector2){r.x + r.width, r.y + r.height};
-    corners[3] = (Vector2){r.x, r.y + r.height};
+    *out = (CollisionShape){0};
+    out->count = 1;
+    out->prims[0].kind = COLLIDER_RECT;
+    out->prims[0].offset = (Vector2){0, 0};
+    out->prims[0].angle_offset = 0;
+    out->prims[0].rect.half_w = r.width / 2;
+    out->prims[0].rect.half_h = r.height / 2;
 }
 
 static const EntityVTable wall_vtable = {
     .update = NULL,
     .render = wall_render,
-    .get_obb = wall_get_obb,
+    .get_collision_shape = wall_get_collision_shape,
 };
 
 Entity entity_wall_init(Rectangle rect)

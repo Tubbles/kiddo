@@ -28,16 +28,22 @@ static void shape_render(const Entity *e)
                  e->rotation * DEG2RAD, e->scale, e->color);
 }
 
-static void shape_get_obb(const Entity *e, Vector2 *corners)
+static void shape_get_collision_shape(const Entity *e, CollisionShape *out)
 {
     float sz = SHAPE_BASE_SIZE * e->scale;
-    obb_corners(e->position, e->rotation, sz, sz, corners);
+    *out = (CollisionShape){0};
+    out->count = 1;
+    out->prims[0].kind = COLLIDER_RECT;
+    out->prims[0].offset = (Vector2){0, 0};
+    out->prims[0].angle_offset = 0;
+    out->prims[0].rect.half_w = sz;
+    out->prims[0].rect.half_h = sz;
 }
 
 static const EntityVTable shape_vtable = {
     .update = shape_update,
     .render = shape_render,
-    .get_obb = shape_get_obb,
+    .get_collision_shape = shape_get_collision_shape,
 };
 
 Entity entity_shape_init(int gamepad_id, Vector2 pos, ShapeKind shape, Color color)

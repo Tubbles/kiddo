@@ -465,25 +465,10 @@ int main(void)
             /* Arena boundary collision for player entities */
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (i >= entity_count || !entities[i].active) continue;
-                /* Build a temporary PlayerState for resolve_arena_collision */
-                PlayerState ps = { .position = entities[i].position };
-                Vector2 corners[4];
-                entities[i].vtable->get_obb(&entities[i], corners);
-                /* Compute half extents from OBB corners */
-                float half_w, half_h;
-                float angle_deg;
-                if (entities[i].kind == ENTITY_CAR) {
-                    half_w = CAR_HALF_W;
-                    half_h = CAR_HALF_H;
-                    angle_deg = entities[i].car.facing_angle;
-                } else {
-                    float sz = SHAPE_BASE_SIZE * entities[i].scale;
-                    half_w = sz;
-                    half_h = sz;
-                    angle_deg = entities[i].rotation;
-                }
-                resolve_arena_collision(&ps, angle_deg, half_w, half_h);
-                entities[i].position = ps.position;
+                CollisionShape cs;
+                entities[i].vtable->get_collision_shape(&entities[i], &cs);
+                float angle = entities[i].rotation;
+                resolve_arena_composite(&cs, &entities[i].position, angle);
             }
 
             /* Mode-specific game events */
@@ -498,26 +483,30 @@ int main(void)
                 }
 
                 /* Shape-shape collision detection */
-                PlayerState tmp_players[MAX_PLAYERS] = {0};
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (i >= entity_count) break;
-                    tmp_players[i].active = entities[i].active;
-                    tmp_players[i].position = entities[i].position;
-                    tmp_players[i].scale = entities[i].scale;
-                    tmp_players[i].shape = entities[i].shape.shape;
-                }
-                CollisionEvent collisions[MAX_COLLISIONS];
-                int collision_count = collision_detect(tmp_players, MAX_PLAYERS,
-                                                       collisions, MAX_COLLISIONS);
                 bool cur_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
-                for (int i = 0; i < collision_count; i++) {
-                    int a = collisions[i].player_a;
-                    int b = collisions[i].player_b;
-                    cur_colliding[a][b] = true;
-                    cur_colliding[b][a] = true;
-                    if (!prev_colliding[a][b]) {
-                        particles_spawn(&particles, collisions[i].contact, MAGENTA, 20);
-                        audio_play(SOUND_COLLISION);
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (i >= entity_count || !entities[i].active) continue;
+                    CollisionShape cs_a;
+                    entities[i].vtable->get_collision_shape(&entities[i], &cs_a);
+                    for (int j = i + 1; j < MAX_PLAYERS; j++) {
+                        if (j >= entity_count || !entities[j].active) continue;
+                        CollisionShape cs_b;
+                        entities[j].vtable->get_collision_shape(&entities[j], &cs_b);
+                        if (composite_overlap(&cs_a, entities[i].position,
+                                              entities[i].rotation,
+                                              &cs_b, entities[j].position,
+                                              entities[j].rotation)) {
+                            cur_colliding[i][j] = true;
+                            cur_colliding[j][i] = true;
+                            if (!prev_colliding[i][j]) {
+                                Vector2 contact = {
+                                    (entities[i].position.x + entities[j].position.x) * 0.5f,
+                                    (entities[i].position.y + entities[j].position.y) * 0.5f,
+                                };
+                                particles_spawn(&particles, contact, MAGENTA, 20);
+                                audio_play(SOUND_COLLISION);
+                            }
+                        }
                     }
                 }
                 memcpy(prev_colliding, cur_colliding, sizeof(prev_colliding));
@@ -528,15 +517,17 @@ int main(void)
                     if (i >= entity_count || !entities[i].active) continue;
 
                     /* Wall collision: car vs wall entities */
-                    PlayerState ps = { .position = entities[i].position };
+                    CollisionShape car_cs;
+                    entities[i].vtable->get_collision_shape(&entities[i], &car_cs);
                     for (int w = 0; w < entity_count; w++) {
                         if (entities[w].kind != ENTITY_WALL || !entities[w].active)
                             continue;
-                        resolve_wall_collision_ex(&ps, entities[i].car.facing_angle,
-                                                   CAR_HALF_W, CAR_HALF_H,
-                                                   entities[w].wall.rect);
+                        Vector2 push = resolve_composite_wall(
+                            &car_cs, entities[i].position, entities[i].rotation,
+                            entities[w].wall.rect);
+                        entities[i].position.x += push.x;
+                        entities[i].position.y += push.y;
                     }
-                    entities[i].position = ps.position;
 
                     /* Check parking — car AABB overlaps parking lot */
                     Rectangle car_aabb = {
@@ -588,10 +579,10 @@ int main(void)
                 DrawRectangleRoundedLinesEx(arena_rect, 0.05f, 16, 2,
                                             (Color){255, 0, 0, 100});
 
-                /* Entity bounding boxes */
+                /* Entity collision shapes */
                 for (int i = 0; i < entity_count; i++) {
                     if (!entities[i].active) continue;
-                    if (!entities[i].vtable->get_obb) continue;
+                    if (!entities[i].vtable->get_collision_shape) continue;
 
                     Color bc;
                     if (entities[i].kind == ENTITY_WALL) {
@@ -603,20 +594,36 @@ int main(void)
                                      entities[i].color.b, 80};
                     }
 
-                    Vector2 corners[4];
-                    entities[i].vtable->get_obb(&entities[i], corners);
-
-                    if (entities[i].kind == ENTITY_WALL ||
-                        entities[i].kind == ENTITY_PARKING) {
-                        /* Draw as rectangle outline */
-                        if (entities[i].kind == ENTITY_WALL)
-                            DrawRectangleLinesEx(entities[i].wall.rect, 2, bc);
-                        else
-                            DrawRectangleLinesEx(entities[i].parking.rect, 2, bc);
-                    } else {
-                        for (int j = 0; j < 4; j++) {
-                            int k = (j + 1) % 4;
-                            DrawLineEx(corners[j], corners[k], 2, bc);
+                    CollisionShape cs;
+                    entities[i].vtable->get_collision_shape(&entities[i], &cs);
+                    for (int p = 0; p < cs.count; p++) {
+                        Vector2 wp = prim_world_pos(entities[i].position,
+                                                     entities[i].rotation,
+                                                     cs.prims[p].offset);
+                        if (cs.prims[p].kind == COLLIDER_RECT) {
+                            float pa = entities[i].rotation + cs.prims[p].angle_offset;
+                            Vector2 corners[4];
+                            obb_corners(wp, pa,
+                                        cs.prims[p].rect.half_w,
+                                        cs.prims[p].rect.half_h, corners);
+                            for (int j = 0; j < 4; j++) {
+                                int k = (j + 1) % 4;
+                                DrawLineEx(corners[j], corners[k], 2, bc);
+                            }
+                        } else if (cs.prims[p].kind == COLLIDER_CIRCLE) {
+                            DrawCircleLinesV(wp, cs.prims[p].circle.radius, bc);
+                        } else if (cs.prims[p].kind == COLLIDER_TRIANGLE) {
+                            Vector2 tv[3];
+                            for (int v = 0; v < 3; v++) {
+                                tv[v] = (Vector2){
+                                    wp.x + cs.prims[p].triangle.verts[v].x,
+                                    wp.y + cs.prims[p].triangle.verts[v].y,
+                                };
+                            }
+                            for (int j = 0; j < 3; j++) {
+                                int k = (j + 1) % 3;
+                                DrawLineEx(tv[j], tv[k], 2, bc);
+                            }
                         }
                     }
                 }

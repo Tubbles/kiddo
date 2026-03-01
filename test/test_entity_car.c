@@ -29,17 +29,15 @@ void test_entity_car_facing_angle_updates(void)
     TEST_ASSERT_FLOAT_WITHIN(1.0f, 90.0f, e.car.facing_angle);
 }
 
-void test_entity_car_get_obb(void)
+void test_entity_car_get_collision_shape(void)
 {
     Texture2D tex = {0};
     Entity e = entity_car_init(0, (Vector2){200, 200}, RED, &tex);
-    Vector2 corners[4];
-    e.vtable->get_obb(&e, corners);
+    CollisionShape cs;
+    e.vtable->get_collision_shape(&e, &cs);
 
-    /* With facing_angle=0, OBB should be CAR_HALF_W x CAR_HALF_H centered
-       at (200,200) */
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 200.0f - CAR_HALF_W, corners[0].x);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 200.0f - CAR_HALF_H, corners[0].y);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 200.0f + CAR_HALF_W, corners[2].x);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 200.0f + CAR_HALF_H, corners[2].y);
+    TEST_ASSERT_EQUAL_INT(1, cs.count);
+    TEST_ASSERT_EQUAL_INT(COLLIDER_RECT, cs.prims[0].kind);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, CAR_HALF_W, cs.prims[0].rect.half_w);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, CAR_HALF_H, cs.prims[0].rect.half_h);
 }

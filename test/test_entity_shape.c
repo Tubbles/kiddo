@@ -15,7 +15,7 @@ void test_entity_shape_init_sets_fields(void)
     TEST_ASSERT_NOT_NULL(e.vtable);
     TEST_ASSERT_NOT_NULL(e.vtable->update);
     TEST_ASSERT_NOT_NULL(e.vtable->render);
-    TEST_ASSERT_NOT_NULL(e.vtable->get_obb);
+    TEST_ASSERT_NOT_NULL(e.vtable->get_collision_shape);
 }
 
 void test_entity_shape_update_moves(void)
@@ -29,17 +29,15 @@ void test_entity_shape_update_moves(void)
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 300.0f, e.position.y);
 }
 
-void test_entity_shape_get_obb(void)
+void test_entity_shape_get_collision_shape(void)
 {
     Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_SQUARE, RED);
-    Vector2 corners[4];
-    e.vtable->get_obb(&e, corners);
+    CollisionShape cs;
+    e.vtable->get_collision_shape(&e, &cs);
 
-    /* With rotation=0, scale=1, the OBB should be a SHAPE_BASE_SIZE square
-       centered at (100,100) */
+    TEST_ASSERT_EQUAL_INT(1, cs.count);
+    TEST_ASSERT_EQUAL_INT(COLLIDER_RECT, cs.prims[0].kind);
     float sz = SHAPE_BASE_SIZE;
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f - sz, corners[0].x);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f - sz, corners[0].y);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f + sz, corners[2].x);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100.0f + sz, corners[2].y);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_w);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_h);
 }
