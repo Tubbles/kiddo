@@ -42,6 +42,16 @@ void test_collision_detect_no_overlap(void);
 void test_collision_detect_overlapping(void);
 void test_collision_detect_skips_inactive(void);
 
+/* test_entity_shape.c */
+void test_entity_shape_init_sets_fields(void);
+void test_entity_shape_update_moves(void);
+void test_entity_shape_get_obb(void);
+
+/* test_entity_car.c */
+void test_entity_car_init_sets_fields(void);
+void test_entity_car_facing_angle_updates(void);
+void test_entity_car_get_obb(void);
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -75,6 +85,14 @@ int main(void)
     RUN_TEST(test_collision_detect_no_overlap);
     RUN_TEST(test_collision_detect_overlapping);
     RUN_TEST(test_collision_detect_skips_inactive);
+
+    RUN_TEST(test_entity_shape_init_sets_fields);
+    RUN_TEST(test_entity_shape_update_moves);
+    RUN_TEST(test_entity_shape_get_obb);
+
+    RUN_TEST(test_entity_car_init_sets_fields);
+    RUN_TEST(test_entity_car_facing_angle_updates);
+    RUN_TEST(test_entity_car_get_obb);
 
     return UNITY_END();
 }

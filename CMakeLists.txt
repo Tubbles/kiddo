@@ -20,6 +20,10 @@ add_executable(kiddo
     src/particle.c
     src/collision.c
     src/audio.c
+    src/entity_shape.c
+    src/entity_car.c
+    src/entity_wall.c
+    src/entity_parking.c
 )
 target_link_libraries(kiddo PRIVATE raylib zlog)
 

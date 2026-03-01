@@ -1,6 +1,11 @@
 #include "raylib.h"
 #include "audio.h"
 #include "collision.h"
+#include "entity.h"
+#include "entity_car.h"
+#include "entity_parking.h"
+#include "entity_shape.h"
+#include "entity_wall.h"
 #include "input.h"
 #include "particle.h"
 #include "player.h"
@@ -51,9 +56,6 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define PARKING_LOT_W 200.0f
 #define PARKING_LOT_H 140.0f
 #define PARKING_LOT_MARGIN 120.0f
-#define CAR_SIZE 100.0f
-#define CAR_HALF_W 22.0f
-#define CAR_HALF_H 43.0f
 #define MAX_WALLS 5
 #define WALL_LONG_MIN 200.0f
 #define WALL_LONG_MAX 400.0f
@@ -61,7 +63,6 @@ static const GameMode MENU_MODES[MENU_ITEM_COUNT] = {
 #define WALL_SHORT_MAX 40.0f
 #define WALL_MARGIN 80.0f
 #define ARENA_PAD 20.0f
-#define ARENA_RADIUS 80.0f
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     {230, 41, 55, 255},   /* RED */
@@ -107,18 +108,6 @@ static InputState merge_input(InputState a, InputState b)
     return out;
 }
 
-static void reset_game_state(PlayerState *players, ParticlePool *particles,
-                              bool prev_colliding[MAX_PLAYERS][MAX_PLAYERS])
-{
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        players[i] = player_init(i, player_start_pos(i),
-                                 PLAYER_SHAPES[i], PLAYER_COLORS[i]);
-        players[i].active = (i == 0);
-    }
-    particles_init(particles);
-    memset(prev_colliding, 0, sizeof(bool) * MAX_PLAYERS * MAX_PLAYERS);
-}
-
 static bool start_pressed_solo(int gamepad_id)
 {
     if (!IsGamepadAvailable(gamepad_id))
@@ -161,141 +150,47 @@ static void randomize_walls(Rectangle *walls, int count, Rectangle parking_lot)
     }
 }
 
-static void project_corners(const Vector2 *corners, int count,
-                            Vector2 axis, float *mn, float *mx)
+/* Entity array helpers */
+static int entity_count;
+static Entity entities[MAX_ENTITIES];
+
+static int add_entity(Entity e)
 {
-    *mn = *mx = corners[0].x * axis.x + corners[0].y * axis.y;
-    for (int i = 1; i < count; i++) {
-        float p = corners[i].x * axis.x + corners[i].y * axis.y;
-        if (p < *mn) *mn = p;
-        if (p > *mx) *mx = p;
+    if (entity_count >= MAX_ENTITIES) return -1;
+    entities[entity_count] = e;
+    return entity_count++;
+}
+
+static void reset_entities_free_play(void)
+{
+    entity_count = 0;
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        Entity e = entity_shape_init(i, player_start_pos(i),
+                                     PLAYER_SHAPES[i], PLAYER_COLORS[i]);
+        e.active = (i == 0);
+        add_entity(e);
     }
 }
 
-static void obb_corners(Vector2 center, float angle_deg,
-                        float half_w, float half_h, Vector2 *out)
+static void reset_entities_park(Texture2D *car_tex, Font *font,
+                                Rectangle parking_lot, Rectangle *walls)
 {
-    float rad = angle_deg * DEG2RAD;
-    float c = cosf(rad), s = sinf(rad);
-    Vector2 ax = {c, s};
-    Vector2 ay = {-s, c};
-    out[0] = (Vector2){center.x - half_w*ax.x - half_h*ay.x,
-                       center.y - half_w*ax.y - half_h*ay.y};
-    out[1] = (Vector2){center.x + half_w*ax.x - half_h*ay.x,
-                       center.y + half_w*ax.y - half_h*ay.y};
-    out[2] = (Vector2){center.x + half_w*ax.x + half_h*ay.x,
-                       center.y + half_w*ax.y + half_h*ay.y};
-    out[3] = (Vector2){center.x - half_w*ax.x + half_h*ay.x,
-                       center.y - half_w*ax.y + half_h*ay.y};
-}
+    entity_count = 0;
 
-static void car_obb_corners(Vector2 center, float angle_deg, Vector2 *out)
-{
-    obb_corners(center, angle_deg, CAR_HALF_W, CAR_HALF_H, out);
-}
-
-static void resolve_wall_collision_ex(PlayerState *player, float angle_deg,
-                                      float half_w, float half_h,
-                                      Rectangle wall)
-{
-    float rad = angle_deg * DEG2RAD;
-    float c = cosf(rad), s = sinf(rad);
-    Vector2 car_ax = {c, s};
-    Vector2 car_ay = {-s, c};
-
-    Vector2 car_corners[4];
-    obb_corners(player->position, angle_deg, half_w, half_h, car_corners);
-
-    Vector2 wall_corners[4] = {
-        {wall.x, wall.y},
-        {wall.x + wall.width, wall.y},
-        {wall.x + wall.width, wall.y + wall.height},
-        {wall.x, wall.y + wall.height},
-    };
-
-    /* SAT: 2 car axes + 2 wall axes (x, y) */
-    Vector2 axes[4] = {car_ax, car_ay, {1, 0}, {0, 1}};
-
-    float min_overlap = 1e9f;
-    Vector2 push_axis = {0};
-
-    for (int a = 0; a < 4; a++) {
-        float c_mn, c_mx, w_mn, w_mx;
-        project_corners(car_corners, 4, axes[a], &c_mn, &c_mx);
-        project_corners(wall_corners, 4, axes[a], &w_mn, &w_mx);
-
-        float overlap = fminf(c_mx - w_mn, w_mx - c_mn);
-        if (overlap <= 0) return; /* separated */
-
-        if (overlap < min_overlap) {
-            min_overlap = overlap;
-            float car_mid = (c_mn + c_mx) * 0.5f;
-            float wall_mid = (w_mn + w_mx) * 0.5f;
-            float sign = (car_mid > wall_mid) ? 1.0f : -1.0f;
-            push_axis = (Vector2){axes[a].x * sign, axes[a].y * sign};
-        }
+    /* Player cars (indices 0..MAX_PLAYERS-1) */
+    for (int i = 0; i < MAX_PLAYERS; i++) {
+        Entity e = entity_car_init(i, player_start_pos(i),
+                                   PLAYER_COLORS[i], car_tex);
+        e.active = (i == 0);
+        add_entity(e);
     }
 
-    player->position.x += push_axis.x * min_overlap;
-    player->position.y += push_axis.y * min_overlap;
-}
+    /* Parking lot */
+    add_entity(entity_parking_init(parking_lot, font));
 
-static void resolve_arena_collision(PlayerState *player, float angle_deg,
-                                    float half_w, float half_h)
-{
-    float thick = 200.0f;
-    float r = ARENA_RADIUS;
-    float w = (float)screen_width;
-    float h = (float)screen_height;
-
-    /* 4 edge walls just outside the arena */
-    Rectangle edge_walls[4] = {
-        {ARENA_PAD - thick, ARENA_PAD,         thick, h - 2 * ARENA_PAD}, /* left */
-        {w - ARENA_PAD,     ARENA_PAD,         thick, h - 2 * ARENA_PAD}, /* right */
-        {ARENA_PAD,         ARENA_PAD - thick,  w - 2 * ARENA_PAD, thick}, /* top */
-        {ARENA_PAD,         h - ARENA_PAD,      w - 2 * ARENA_PAD, thick}, /* bottom */
-    };
-    for (int i = 0; i < 4; i++)
-        resolve_wall_collision_ex(player, angle_deg, half_w, half_h,
-                                  edge_walls[i]);
-
-    /* Corner arcs — push OBB corners inside the arc */
-    Vector2 corner_centers[4] = {
-        {ARENA_PAD + r,     ARENA_PAD + r},
-        {w - ARENA_PAD - r, ARENA_PAD + r},
-        {ARENA_PAD + r,     h - ARENA_PAD - r},
-        {w - ARENA_PAD - r, h - ARENA_PAD - r},
-    };
-    for (int c = 0; c < 4; c++) {
-        Vector2 ob[4];
-        obb_corners(player->position, angle_deg, half_w, half_h, ob);
-        for (int j = 0; j < 4; j++) {
-            float dx = ob[j].x - corner_centers[c].x;
-            float dy = ob[j].y - corner_centers[c].y;
-            bool in_corner = false;
-            if (c == 0) in_corner = dx < 0 && dy < 0;
-            if (c == 1) in_corner = dx > 0 && dy < 0;
-            if (c == 2) in_corner = dx < 0 && dy > 0;
-            if (c == 3) in_corner = dx > 0 && dy > 0;
-            if (!in_corner) continue;
-
-            float dist = sqrtf(dx * dx + dy * dy);
-            if (dist > r && dist > 0.001f) {
-                float push = dist - r;
-                float nx = dx / dist;
-                float ny = dy / dist;
-                player->position.x -= nx * push;
-                player->position.y -= ny * push;
-            }
-        }
-    }
-}
-
-static float angle_from_stick(Vector2 stick, float current_angle)
-{
-    if (fabsf(stick.x) < 0.2f && fabsf(stick.y) < 0.2f)
-        return current_angle;
-    return atan2f(stick.y, stick.x) * RAD2DEG + 90.0f;
+    /* Walls */
+    for (int i = 0; i < MAX_WALLS; i++)
+        add_entity(entity_wall_init(walls[i]));
 }
 
 int main(void)
@@ -327,15 +222,8 @@ int main(void)
     SetTargetFPS(60);
     audio_init();
 
-    PlayerState players[MAX_PLAYERS];
-    for (int i = 0; i < MAX_PLAYERS; i++) {
-        players[i] = player_init(i, player_start_pos(i),
-                                 PLAYER_SHAPES[i], PLAYER_COLORS[i]);
-        players[i].active = false;
-    }
-
-    /* Player 0 always active (keyboard fallback) */
-    players[0].active = true;
+    /* Initial entity setup (free play by default) */
+    reset_entities_free_play();
 
     ParticlePool particles;
     particles_init(&particles);
@@ -356,7 +244,6 @@ int main(void)
     Rectangle parking_lot = randomize_parking_lot();
     Rectangle walls[MAX_WALLS] = {0};
     randomize_walls(walls, MAX_WALLS, parking_lot);
-    float car_angles[MAX_PLAYERS] = {0};
 
     dzlog_info("entering game loop");
     log_ring_push("entering game loop");
@@ -370,7 +257,7 @@ int main(void)
         if (frame % 300 == 0) {
             int active = 0;
             for (int i = 0; i < MAX_PLAYERS; i++)
-                if (players[i].active) active++;
+                if (i < entity_count && entities[i].active) active++;
             dzlog_debug("frame=%d t=%.1fs dt=%.4f fps=%d "
                     "players=%d particles=%d",
                     frame, elapsed, dt, GetFPS(), active, particles.count);
@@ -387,7 +274,7 @@ int main(void)
                             dbg.left_trigger, dbg.right_trigger,
                             dbg.buttons[0], dbg.buttons[1],
                             dbg.buttons[2], dbg.buttons[3],
-                            players[i].position.x, players[i].position.y);
+                            entities[i].position.x, entities[i].position.y);
                     char btns[19] = {0};
                     for (int b = 0; b < 18; b++)
                         btns[b] = IsGamepadButtonDown(i, b) ? '1' : '0';
@@ -483,11 +370,15 @@ int main(void)
             if (confirmed) {
                 dzlog_info("menu: selected '%s'", MENU_ITEMS[menu_selection]);
                 log_ring_push("menu: selected '%s'", MENU_ITEMS[menu_selection]);
-                reset_game_state(players, &particles, prev_colliding);
                 game_mode = MENU_MODES[menu_selection];
+                memset(prev_colliding, 0, sizeof(prev_colliding));
+                particles_init(&particles);
                 if (game_mode == MODE_PARK) {
                     parking_lot = randomize_parking_lot();
                     randomize_walls(walls, MAX_WALLS, parking_lot);
+                    reset_entities_park(&car_tex, &font, parking_lot, walls);
+                } else {
+                    reset_entities_free_play();
                 }
                 scene = SCENE_PLAYING;
             }
@@ -536,9 +427,10 @@ int main(void)
             if (scene == SCENE_MENU)
                 continue;
 
-            /* --- Input & update (shared across modes) --- */
+            /* --- Input & update --- */
             InputState inputs[MAX_PLAYERS] = {0};
             for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (i >= entity_count) break;
                 bool gamepad_connected = IsGamepadAvailable(i);
 
                 if (i == 0) {
@@ -546,45 +438,76 @@ int main(void)
                     inputs[0] = gamepad_connected
                         ? merge_input(input_read(0), kb)
                         : kb;
-                    players[0] = player_update(players[0], inputs[0], dt);
                 } else if (gamepad_connected) {
-                    if (!players[i].active) {
-                        players[i] = player_init(i, player_start_pos(i),
-                                                 PLAYER_SHAPES[i], PLAYER_COLORS[i]);
+                    if (!entities[i].active) {
+                        /* Reactivate player entity on gamepad connect */
+                        if (game_mode == MODE_FREE_PLAY) {
+                            entities[i] = entity_shape_init(i, player_start_pos(i),
+                                                            PLAYER_SHAPES[i], PLAYER_COLORS[i]);
+                        } else {
+                            entities[i] = entity_car_init(i, player_start_pos(i),
+                                                          PLAYER_COLORS[i], &car_tex);
+                        }
                     }
                     inputs[i] = input_read(i);
-                    players[i] = player_update(players[i], inputs[i], dt);
                 } else {
-                    players[i].active = false;
+                    entities[i].active = false;
                 }
             }
 
-            /* Arena boundary collision (all modes) */
+            /* Update player entities via vtable */
             for (int i = 0; i < MAX_PLAYERS; i++) {
-                if (!players[i].active) continue;
-                if (game_mode == MODE_PARK) {
-                    resolve_arena_collision(&players[i], car_angles[i],
-                                            CAR_HALF_W, CAR_HALF_H);
-                } else {
-                    float sz = SHAPE_BASE_SIZE * players[i].scale;
-                    resolve_arena_collision(&players[i],
-                                            players[i].rotation * RAD2DEG,
-                                            sz, sz);
-                }
+                if (i >= entity_count || !entities[i].active) continue;
+                if (entities[i].vtable->update)
+                    entities[i].vtable->update(&entities[i], inputs[i], dt);
             }
 
+            /* Arena boundary collision for player entities */
+            for (int i = 0; i < MAX_PLAYERS; i++) {
+                if (i >= entity_count || !entities[i].active) continue;
+                /* Build a temporary PlayerState for resolve_arena_collision */
+                PlayerState ps = { .position = entities[i].position };
+                Vector2 corners[4];
+                entities[i].vtable->get_obb(&entities[i], corners);
+                /* Compute half extents from OBB corners */
+                float half_w, half_h;
+                float angle_deg;
+                if (entities[i].kind == ENTITY_CAR) {
+                    half_w = CAR_HALF_W;
+                    half_h = CAR_HALF_H;
+                    angle_deg = entities[i].car.facing_angle;
+                } else {
+                    float sz = SHAPE_BASE_SIZE * entities[i].scale;
+                    half_w = sz;
+                    half_h = sz;
+                    angle_deg = entities[i].rotation;
+                }
+                resolve_arena_collision(&ps, angle_deg, half_w, half_h);
+                entities[i].position = ps.position;
+            }
+
+            /* Mode-specific game events */
             if (game_mode == MODE_FREE_PLAY) {
-                /* --- Free Play mode --- */
                 for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (players[i].active && any_button_pressed(&inputs[i])) {
-                        particles_spawn(&particles, players[i].position,
-                                        players[i].color, 15);
+                    if (i >= entity_count || !entities[i].active) continue;
+                    if (any_button_pressed(&inputs[i])) {
+                        particles_spawn(&particles, entities[i].position,
+                                        entities[i].color, 15);
                         audio_play(SOUND_BUTTON);
                     }
                 }
 
+                /* Shape-shape collision detection */
+                PlayerState tmp_players[MAX_PLAYERS] = {0};
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (i >= entity_count) break;
+                    tmp_players[i].active = entities[i].active;
+                    tmp_players[i].position = entities[i].position;
+                    tmp_players[i].scale = entities[i].scale;
+                    tmp_players[i].shape = entities[i].shape.shape;
+                }
                 CollisionEvent collisions[MAX_COLLISIONS];
-                int collision_count = collision_detect(players, MAX_PLAYERS,
+                int collision_count = collision_detect(tmp_players, MAX_PLAYERS,
                                                        collisions, MAX_COLLISIONS);
                 bool cur_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
                 for (int i = 0; i < collision_count; i++) {
@@ -601,36 +524,45 @@ int main(void)
             }
 
             if (game_mode == MODE_PARK) {
-                /* --- Park mode --- */
                 for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (!players[i].active) continue;
-                    car_angles[i] = angle_from_stick(inputs[i].left_stick,
-                                                     car_angles[i]);
+                    if (i >= entity_count || !entities[i].active) continue;
 
-                    /* Wall collision */
-                    for (int w = 0; w < MAX_WALLS; w++)
-                        resolve_wall_collision_ex(&players[i], car_angles[i],
+                    /* Wall collision: car vs wall entities */
+                    PlayerState ps = { .position = entities[i].position };
+                    for (int w = 0; w < entity_count; w++) {
+                        if (entities[w].kind != ENTITY_WALL || !entities[w].active)
+                            continue;
+                        resolve_wall_collision_ex(&ps, entities[i].car.facing_angle,
                                                    CAR_HALF_W, CAR_HALF_H,
-                                                   walls[w]);
+                                                   entities[w].wall.rect);
+                    }
+                    entities[i].position = ps.position;
 
-                    /* Check parking — car OBB overlaps parking lot */
+                    /* Check parking — car AABB overlaps parking lot */
                     Rectangle car_aabb = {
-                        players[i].position.x - CAR_HALF_W,
-                        players[i].position.y - CAR_HALF_H,
+                        entities[i].position.x - CAR_HALF_W,
+                        entities[i].position.y - CAR_HALF_H,
                         CAR_HALF_W * 2, CAR_HALF_H * 2
                     };
-                    if (CheckCollisionRecs(car_aabb, parking_lot)) {
-                        Vector2 lot_center = {
-                            parking_lot.x + parking_lot.width / 2,
-                            parking_lot.y + parking_lot.height / 2
-                        };
-                        particles_spawn(&particles, lot_center,
-                                        players[i].color, 30);
-                        audio_play(SOUND_COLLISION);
-                        parking_lot = randomize_parking_lot();
-                        randomize_walls(walls, MAX_WALLS, parking_lot);
+                    for (int p = 0; p < entity_count; p++) {
+                        if (entities[p].kind != ENTITY_PARKING || !entities[p].active)
+                            continue;
+                        if (CheckCollisionRecs(car_aabb, entities[p].parking.rect)) {
+                            Vector2 lot_center = {
+                                entities[p].parking.rect.x + entities[p].parking.rect.width / 2,
+                                entities[p].parking.rect.y + entities[p].parking.rect.height / 2
+                            };
+                            particles_spawn(&particles, lot_center,
+                                            entities[i].color, 30);
+                            audio_play(SOUND_COLLISION);
+                            parking_lot = randomize_parking_lot();
+                            randomize_walls(walls, MAX_WALLS, parking_lot);
+                            reset_entities_park(&car_tex, &font, parking_lot, walls);
+                            goto done_park_check;
+                        }
                     }
                 }
+                done_park_check:;
             }
 
             particles_update(&particles, dt);
@@ -638,46 +570,11 @@ int main(void)
             BeginDrawing();
             render_background();
 
-            if (game_mode == MODE_FREE_PLAY) {
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (players[i].active)
-                        render_shape(players[i].shape, players[i].position,
-                                     players[i].rotation, players[i].scale,
-                                     players[i].color);
-                }
-            }
-
-            if (game_mode == MODE_PARK) {
-                /* Draw walls */
-                for (int i = 0; i < MAX_WALLS; i++)
-                    DrawRectangleRec(walls[i], DARKGRAY);
-
-                /* Draw parking lot */
-                DrawRectangleRec(parking_lot, GRAY);
-                Vector2 p_center = {
-                    parking_lot.x + parking_lot.width / 2,
-                    parking_lot.y + parking_lot.height / 2
-                };
-                Vector2 p_sz = MeasureTextEx(font, "P", 80.0f, 1);
-                DrawTextEx(font, "P",
-                           (Vector2){p_center.x - p_sz.x / 2,
-                                     p_center.y - p_sz.y / 2},
-                           80.0f, 1, WHITE);
-
-                /* Draw cars */
-                float car_scale = CAR_SIZE / (float)car_tex.width;
-                Rectangle src = {0, 0, (float)car_tex.width,
-                                 (float)car_tex.height};
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (!players[i].active) continue;
-                    float dw = (float)car_tex.width * car_scale;
-                    float dh = (float)car_tex.height * car_scale;
-                    Rectangle dst = {players[i].position.x,
-                                     players[i].position.y, dw, dh};
-                    Vector2 origin = {dw / 2, dh / 2};
-                    DrawTexturePro(car_tex, src, dst, origin,
-                                   car_angles[i], players[i].color);
-                }
+            /* Render all active entities via vtable */
+            for (int i = 0; i < entity_count; i++) {
+                if (!entities[i].active) continue;
+                if (entities[i].vtable->render)
+                    entities[i].vtable->render(&entities[i]);
             }
 
             render_particles(particles.items, particles.count);
@@ -691,34 +588,36 @@ int main(void)
                 DrawRectangleRoundedLinesEx(arena_rect, 0.05f, 16, 2,
                                             (Color){255, 0, 0, 100});
 
-                if (game_mode == MODE_PARK) {
-                    /* Walls */
-                    for (int i = 0; i < MAX_WALLS; i++)
-                        DrawRectangleLinesEx(walls[i], 2,
-                                             (Color){255, 0, 0, 100});
-                    /* Parking lot */
-                    DrawRectangleLinesEx(parking_lot, 2,
-                                         (Color){0, 200, 0, 100});
-                }
+                /* Entity bounding boxes */
+                for (int i = 0; i < entity_count; i++) {
+                    if (!entities[i].active) continue;
+                    if (!entities[i].vtable->get_obb) continue;
 
-                /* Player bounding boxes */
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (!players[i].active) continue;
-                    Color bc = {players[i].color.r, players[i].color.g,
-                                players[i].color.b, 80};
-                    Vector2 corners[4];
-                    if (game_mode == MODE_PARK) {
-                        car_obb_corners(players[i].position,
-                                        car_angles[i], corners);
+                    Color bc;
+                    if (entities[i].kind == ENTITY_WALL) {
+                        bc = (Color){255, 0, 0, 100};
+                    } else if (entities[i].kind == ENTITY_PARKING) {
+                        bc = (Color){0, 200, 0, 100};
                     } else {
-                        float sz = SHAPE_BASE_SIZE * players[i].scale;
-                        obb_corners(players[i].position,
-                                    players[i].rotation * RAD2DEG,
-                                    sz, sz, corners);
+                        bc = (Color){entities[i].color.r, entities[i].color.g,
+                                     entities[i].color.b, 80};
                     }
-                    for (int j = 0; j < 4; j++) {
-                        int k = (j + 1) % 4;
-                        DrawLineEx(corners[j], corners[k], 2, bc);
+
+                    Vector2 corners[4];
+                    entities[i].vtable->get_obb(&entities[i], corners);
+
+                    if (entities[i].kind == ENTITY_WALL ||
+                        entities[i].kind == ENTITY_PARKING) {
+                        /* Draw as rectangle outline */
+                        if (entities[i].kind == ENTITY_WALL)
+                            DrawRectangleLinesEx(entities[i].wall.rect, 2, bc);
+                        else
+                            DrawRectangleLinesEx(entities[i].parking.rect, 2, bc);
+                    } else {
+                        for (int j = 0; j < 4; j++) {
+                            int k = (j + 1) % 4;
+                            DrawLineEx(corners[j], corners[k], 2, bc);
+                        }
                     }
                 }
 
@@ -728,16 +627,29 @@ int main(void)
                 float left_h = 0;
                 float left_w = 0;
                 const char *shape_names[] = {"circle", "square", "tri", "star"};
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (!players[i].active) continue;
-                    const char *txt = TextFormat(
-                            "p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
-                            i,
-                            (players[i].shape < SHAPE_COUNT) ? shape_names[players[i].shape] : "???",
-                            players[i].scale,
-                            players[i].color.r, players[i].color.g,
-                            players[i].color.b, players[i].color.a,
-                            players[i].position.x, players[i].position.y);
+                for (int i = 0; i < MAX_PLAYERS && i < entity_count; i++) {
+                    if (!entities[i].active) continue;
+                    const char *kind_str = (entities[i].kind == ENTITY_SHAPE) ? "shape" : "car";
+                    const char *txt;
+                    if (entities[i].kind == ENTITY_SHAPE) {
+                        txt = TextFormat(
+                                "p%d type=%s shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                                i, kind_str,
+                                (entities[i].shape.shape < SHAPE_COUNT) ? shape_names[entities[i].shape.shape] : "???",
+                                entities[i].scale,
+                                entities[i].color.r, entities[i].color.g,
+                                entities[i].color.b, entities[i].color.a,
+                                entities[i].position.x, entities[i].position.y);
+                    } else {
+                        txt = TextFormat(
+                                "p%d type=%s angle=%.1f scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                                i, kind_str,
+                                entities[i].car.facing_angle,
+                                entities[i].scale,
+                                entities[i].color.r, entities[i].color.g,
+                                entities[i].color.b, entities[i].color.a,
+                                entities[i].position.x, entities[i].position.y);
+                    }
                     Vector2 sz = MeasureTextEx(font, txt, dbg_size, 1);
                     if (sz.x > left_w) left_w = sz.x;
                     left_h += 26;
@@ -745,7 +657,6 @@ int main(void)
                 for (int i = 0; i < MAX_PLAYERS; i++) {
                     if (!IsGamepadAvailable(i)) continue;
                     left_h += 62;
-                    /* Approximate width from gp_size lines */
                     Vector2 sz = MeasureTextEx(font, "gp0 stick=-1.00,-1.00 rstick=-1.00,-1.00", gp_size, 1);
                     if (sz.x > left_w) left_w = sz.x;
                 }
@@ -777,16 +688,29 @@ int main(void)
 
                 /* Draw left panel text */
                 float y = 10;
-                for (int i = 0; i < MAX_PLAYERS; i++) {
-                    if (!players[i].active) continue;
-                    const char *txt = TextFormat(
-                            "p%d shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
-                            i,
-                            (players[i].shape < SHAPE_COUNT) ? shape_names[players[i].shape] : "???",
-                            players[i].scale,
-                            players[i].color.r, players[i].color.g,
-                            players[i].color.b, players[i].color.a,
-                            players[i].position.x, players[i].position.y);
+                for (int i = 0; i < MAX_PLAYERS && i < entity_count; i++) {
+                    if (!entities[i].active) continue;
+                    const char *kind_str = (entities[i].kind == ENTITY_SHAPE) ? "shape" : "car";
+                    const char *txt;
+                    if (entities[i].kind == ENTITY_SHAPE) {
+                        txt = TextFormat(
+                                "p%d type=%s shape=%s scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                                i, kind_str,
+                                (entities[i].shape.shape < SHAPE_COUNT) ? shape_names[entities[i].shape.shape] : "???",
+                                entities[i].scale,
+                                entities[i].color.r, entities[i].color.g,
+                                entities[i].color.b, entities[i].color.a,
+                                entities[i].position.x, entities[i].position.y);
+                    } else {
+                        txt = TextFormat(
+                                "p%d type=%s angle=%.1f scale=%.2f color=(%d,%d,%d,%d) pos=(%.0f,%.0f)",
+                                i, kind_str,
+                                entities[i].car.facing_angle,
+                                entities[i].scale,
+                                entities[i].color.r, entities[i].color.g,
+                                entities[i].color.b, entities[i].color.a,
+                                entities[i].position.x, entities[i].position.y);
+                    }
                     DrawTextEx(font, txt, (Vector2){10, y}, dbg_size, 1, BLACK);
                     y += 26;
                 }
