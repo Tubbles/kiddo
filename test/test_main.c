@@ -55,6 +55,9 @@ void test_tri_rect_overlap(void);
 void test_entity_shape_init_sets_fields(void);
 void test_entity_shape_update_moves(void);
 void test_entity_shape_get_collision_shape(void);
+void test_entity_shape_circle_collider(void);
+void test_entity_shape_triangle_collider(void);
+void test_entity_shape_star_collider(void);
 
 /* test_entity_car.c */
 void test_entity_car_init_sets_fields(void);
@@ -107,6 +110,9 @@ int main(void)
     RUN_TEST(test_entity_shape_init_sets_fields);
     RUN_TEST(test_entity_shape_update_moves);
     RUN_TEST(test_entity_shape_get_collision_shape);
+    RUN_TEST(test_entity_shape_circle_collider);
+    RUN_TEST(test_entity_shape_triangle_collider);
+    RUN_TEST(test_entity_shape_star_collider);
 
     RUN_TEST(test_entity_car_init_sets_fields);
     RUN_TEST(test_entity_car_facing_angle_updates);

@@ -3,6 +3,8 @@
 #include "player.h"
 #include "render.h"
 
+#include <math.h>
+
 static void shape_update(Entity *e, InputState input, float dt)
 {
     PlayerState ps = {
@@ -33,11 +35,34 @@ static void shape_get_collision_shape(const Entity *e, CollisionShape *out)
     float sz = SHAPE_BASE_SIZE * e->scale;
     *out = (CollisionShape){0};
     out->count = 1;
-    out->prims[0].kind = COLLIDER_RECT;
     out->prims[0].offset = (Vector2){0, 0};
-    out->prims[0].angle_offset = 0;
-    out->prims[0].rect.half_w = sz;
-    out->prims[0].rect.half_h = sz;
+
+    switch (e->shape.shape) {
+    case SHAPE_CIRCLE:
+        out->prims[0].kind = COLLIDER_CIRCLE;
+        out->prims[0].circle.radius = sz;
+        break;
+    case SHAPE_TRIANGLE: {
+        out->prims[0].kind = COLLIDER_TRIANGLE;
+        float rot = e->rotation * DEG2RAD;
+        for (int i = 0; i < 3; i++) {
+            float a = rot + (float)i * 2.0f * PI / 3.0f - PI / 2.0f;
+            out->prims[0].triangle.verts[i] = (Vector2){
+                cosf(a) * sz, sinf(a) * sz};
+        }
+        break;
+    }
+    case SHAPE_STAR:
+        out->prims[0].kind = COLLIDER_CIRCLE;
+        out->prims[0].circle.radius = sz * 0.75f;
+        break;
+    default: /* SHAPE_SQUARE */
+        out->prims[0].kind = COLLIDER_RECT;
+        out->prims[0].angle_offset = 0;
+        out->prims[0].rect.half_w = sz;
+        out->prims[0].rect.half_h = sz;
+        break;
+    }
 }
 
 static const EntityVTable shape_vtable = {

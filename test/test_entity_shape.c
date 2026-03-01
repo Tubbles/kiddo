@@ -31,13 +31,42 @@ void test_entity_shape_update_moves(void)
 
 void test_entity_shape_get_collision_shape(void)
 {
+    /* Square -> COLLIDER_RECT */
     Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_SQUARE, RED);
     CollisionShape cs;
     e.vtable->get_collision_shape(&e, &cs);
-
     TEST_ASSERT_EQUAL_INT(1, cs.count);
     TEST_ASSERT_EQUAL_INT(COLLIDER_RECT, cs.prims[0].kind);
     float sz = SHAPE_BASE_SIZE;
     TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_w);
     TEST_ASSERT_FLOAT_WITHIN(1.0f, sz, cs.prims[0].rect.half_h);
+}
+
+void test_entity_shape_circle_collider(void)
+{
+    Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_CIRCLE, RED);
+    CollisionShape cs;
+    e.vtable->get_collision_shape(&e, &cs);
+    TEST_ASSERT_EQUAL_INT(1, cs.count);
+    TEST_ASSERT_EQUAL_INT(COLLIDER_CIRCLE, cs.prims[0].kind);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, SHAPE_BASE_SIZE, cs.prims[0].circle.radius);
+}
+
+void test_entity_shape_triangle_collider(void)
+{
+    Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_TRIANGLE, RED);
+    CollisionShape cs;
+    e.vtable->get_collision_shape(&e, &cs);
+    TEST_ASSERT_EQUAL_INT(1, cs.count);
+    TEST_ASSERT_EQUAL_INT(COLLIDER_TRIANGLE, cs.prims[0].kind);
+}
+
+void test_entity_shape_star_collider(void)
+{
+    Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_STAR, RED);
+    CollisionShape cs;
+    e.vtable->get_collision_shape(&e, &cs);
+    TEST_ASSERT_EQUAL_INT(1, cs.count);
+    TEST_ASSERT_EQUAL_INT(COLLIDER_CIRCLE, cs.prims[0].kind);
+    TEST_ASSERT_TRUE(cs.prims[0].circle.radius < SHAPE_BASE_SIZE);
 }
