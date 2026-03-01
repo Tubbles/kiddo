@@ -57,9 +57,8 @@ static void shape_get_collision_shape(const Entity *e, CollisionShape *out)
         out->prims[0].circle.radius = sz * 0.75f;
         break;
     default: /* SHAPE_SQUARE */
-        /* Rendered as a diamond (45° rotated), edge half-length = sz/√2 */
         out->prims[0].kind = COLLIDER_RECT;
-        out->prims[0].angle_offset = 45.0f;
+        out->prims[0].angle_offset = 0;
         float half = sz * 0.7071f;
         out->prims[0].rect.half_w = half;
         out->prims[0].rect.half_h = half;

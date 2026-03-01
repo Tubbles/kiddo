@@ -40,7 +40,7 @@ void test_entity_shape_get_collision_shape(void)
     float half = SHAPE_BASE_SIZE * 0.7071f;
     TEST_ASSERT_FLOAT_WITHIN(1.0f, half, cs.prims[0].rect.half_w);
     TEST_ASSERT_FLOAT_WITHIN(1.0f, half, cs.prims[0].rect.half_h);
-    TEST_ASSERT_FLOAT_WITHIN(0.1f, 45.0f, cs.prims[0].angle_offset);
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 0.0f, cs.prims[0].angle_offset);
 }
 
 void test_entity_shape_circle_collider(void)
