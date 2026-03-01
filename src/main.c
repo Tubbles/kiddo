@@ -522,28 +522,25 @@ int main(void)
                     for (int w = 0; w < entity_count; w++) {
                         if (entities[w].kind != ENTITY_WALL || !entities[w].active)
                             continue;
-                        Vector2 push = resolve_composite_wall(
+                        CollisionShape wall_cs;
+                        entities[w].vtable->get_collision_shape(&entities[w], &wall_cs);
+                        Vector2 push = resolve_composite(
                             &car_cs, entities[i].position, entities[i].rotation,
-                            entities[w].wall.rect);
+                            &wall_cs, entities[w].position, entities[w].rotation);
                         entities[i].position.x += push.x;
                         entities[i].position.y += push.y;
                     }
 
-                    /* Check parking — car AABB overlaps parking lot */
-                    Rectangle car_aabb = {
-                        entities[i].position.x - CAR_HALF_W,
-                        entities[i].position.y - CAR_HALF_H,
-                        CAR_HALF_W * 2, CAR_HALF_H * 2
-                    };
+                    /* Check parking — car overlaps parking lot */
                     for (int p = 0; p < entity_count; p++) {
                         if (entities[p].kind != ENTITY_PARKING || !entities[p].active)
                             continue;
-                        if (CheckCollisionRecs(car_aabb, entities[p].parking.rect)) {
-                            Vector2 lot_center = {
-                                entities[p].parking.rect.x + entities[p].parking.rect.width / 2,
-                                entities[p].parking.rect.y + entities[p].parking.rect.height / 2
-                            };
-                            particles_spawn(&particles, lot_center,
+                        CollisionShape park_cs;
+                        entities[p].vtable->get_collision_shape(&entities[p], &park_cs);
+                        if (composite_overlap(
+                                &car_cs, entities[i].position, entities[i].rotation,
+                                &park_cs, entities[p].position, entities[p].rotation)) {
+                            particles_spawn(&particles, entities[p].position,
                                             entities[i].color, 30);
                             audio_play(SOUND_COLLISION);
                             parking_lot = randomize_parking_lot();
