@@ -52,10 +52,27 @@ static void shape_get_collision_shape(const Entity *e, CollisionShape *out)
         }
         break;
     }
-    case SHAPE_STAR:
-        out->prims[0].kind = COLLIDER_CIRCLE;
-        out->prims[0].circle.radius = sz * 0.75f;
+    case SHAPE_STAR: {
+        /* 5 spike triangles: outer tip + two adjacent inner valleys */
+        float rot = e->rotation * DEG2RAD;
+        float inner = sz * 0.4f;
+        int points = 5;
+        out->count = points;
+        for (int i = 0; i < points; i++) {
+            float tip_angle = rot + (float)i * 2.0f * PI / points - PI / 2.0f;
+            float valley_l = tip_angle - PI / points;
+            float valley_r = tip_angle + PI / points;
+            out->prims[i].kind = COLLIDER_TRIANGLE;
+            out->prims[i].offset = (Vector2){0, 0};
+            out->prims[i].triangle.verts[0] = (Vector2){
+                cosf(tip_angle) * sz, sinf(tip_angle) * sz};
+            out->prims[i].triangle.verts[1] = (Vector2){
+                cosf(valley_l) * inner, sinf(valley_l) * inner};
+            out->prims[i].triangle.verts[2] = (Vector2){
+                cosf(valley_r) * inner, sinf(valley_r) * inner};
+        }
         break;
+    }
     default: /* SHAPE_SQUARE */
         out->prims[0].kind = COLLIDER_RECT;
         out->prims[0].angle_offset = 0;

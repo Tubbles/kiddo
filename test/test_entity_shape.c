@@ -67,7 +67,7 @@ void test_entity_shape_star_collider(void)
     Entity e = entity_shape_init(0, (Vector2){100, 100}, SHAPE_STAR, RED);
     CollisionShape cs;
     e.vtable->get_collision_shape(&e, &cs);
-    TEST_ASSERT_EQUAL_INT(1, cs.count);
-    TEST_ASSERT_EQUAL_INT(COLLIDER_CIRCLE, cs.prims[0].kind);
-    TEST_ASSERT_TRUE(cs.prims[0].circle.radius < SHAPE_BASE_SIZE);
+    TEST_ASSERT_EQUAL_INT(5, cs.count);
+    for (int i = 0; i < 5; i++)
+        TEST_ASSERT_EQUAL_INT(COLLIDER_TRIANGLE, cs.prims[i].kind);
 }
