@@ -33,7 +33,7 @@ static void draw_star(Vector2 pos, float size, float rotation, Color color)
 static void draw_rotated_square(Vector2 pos, float size, float rotation, Color color)
 {
     Vector2 corners[4];
-    float angles[4] = {-0.5f * PI, 0.0f, 0.5f * PI, PI};
+    float angles[4] = {-0.25f * PI, 0.25f * PI, 0.75f * PI, -0.75f * PI};
 
     for (int i = 0; i < 4; i++) {
         float a = rotation + angles[i];
