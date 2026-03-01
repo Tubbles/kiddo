@@ -41,6 +41,21 @@ void test_shape_overlap_same_position(void);
 void test_collision_detect_no_overlap(void);
 void test_collision_detect_overlapping(void);
 void test_collision_detect_skips_inactive(void);
+void test_rect_rect_overlap(void);
+void test_rect_rect_no_overlap(void);
+void test_rect_rect_rotated(void);
+void test_circle_circle_overlap(void);
+void test_circle_circle_no_overlap(void);
+void test_rect_circle_overlap(void);
+void test_rect_circle_no_overlap(void);
+void test_circle_rect_is_negated(void);
+void test_composite_single_rect_matches_rect_rect(void);
+void test_composite_overlap_bool(void);
+void test_composite_wall(void);
+void test_tri_tri_overlap(void);
+void test_tri_tri_no_overlap(void);
+void test_tri_circle_overlap(void);
+void test_tri_rect_overlap(void);
 
 /* test_entity_shape.c */
 void test_entity_shape_init_sets_fields(void);
@@ -85,6 +100,21 @@ int main(void)
     RUN_TEST(test_collision_detect_no_overlap);
     RUN_TEST(test_collision_detect_overlapping);
     RUN_TEST(test_collision_detect_skips_inactive);
+    RUN_TEST(test_rect_rect_overlap);
+    RUN_TEST(test_rect_rect_no_overlap);
+    RUN_TEST(test_rect_rect_rotated);
+    RUN_TEST(test_circle_circle_overlap);
+    RUN_TEST(test_circle_circle_no_overlap);
+    RUN_TEST(test_rect_circle_overlap);
+    RUN_TEST(test_rect_circle_no_overlap);
+    RUN_TEST(test_circle_rect_is_negated);
+    RUN_TEST(test_composite_single_rect_matches_rect_rect);
+    RUN_TEST(test_composite_overlap_bool);
+    RUN_TEST(test_composite_wall);
+    RUN_TEST(test_tri_tri_overlap);
+    RUN_TEST(test_tri_tri_no_overlap);
+    RUN_TEST(test_tri_circle_overlap);
+    RUN_TEST(test_tri_rect_overlap);
 
     RUN_TEST(test_entity_shape_init_sets_fields);
     RUN_TEST(test_entity_shape_update_moves);
