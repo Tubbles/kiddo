@@ -2,7 +2,19 @@
 
 #include "zlog.h"
 
+#include <math.h>
 #include <stdlib.h>
+
+#define STICK_DEADZONE 0.15f
+
+static Vector2 apply_deadzone(Vector2 stick, float deadzone)
+{
+    float mag = sqrtf(stick.x * stick.x + stick.y * stick.y);
+    if (mag < deadzone)
+        return (Vector2){0, 0};
+    float scale = (mag - deadzone) / (1.0f - deadzone) / mag;
+    return (Vector2){stick.x * scale, stick.y * scale};
+}
 
 void input_load_mappings(const char *path)
 {
@@ -41,10 +53,12 @@ InputState input_read(int gamepad_id)
     if (!IsGamepadAvailable(gamepad_id))
         return state;
 
-    state.left_stick.x = GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_LEFT_X);
-    state.left_stick.y = GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_LEFT_Y);
-    state.right_stick.x = GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_RIGHT_X);
-    state.right_stick.y = GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_RIGHT_Y);
+    Vector2 left = {GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_LEFT_X),
+                     GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_LEFT_Y)};
+    Vector2 right = {GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_RIGHT_X),
+                      GetGamepadAxisMovement(gamepad_id, GAMEPAD_AXIS_RIGHT_Y)};
+    state.left_stick = apply_deadzone(left, STICK_DEADZONE);
+    state.right_stick = apply_deadzone(right, STICK_DEADZONE);
 
     state.buttons[0] = IsGamepadButtonPressed(gamepad_id, GAMEPAD_BUTTON_RIGHT_FACE_DOWN);
     state.buttons[1] = IsGamepadButtonPressed(gamepad_id, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT);
