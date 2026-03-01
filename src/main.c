@@ -545,7 +545,11 @@ int main(void)
                             audio_play(SOUND_COLLISION);
                             parking_lot = randomize_parking_lot();
                             randomize_walls(walls, MAX_WALLS, parking_lot);
-                            reset_entities_park(&car_tex, &font, parking_lot, walls);
+                            /* Replace only parking lot + walls, keep players */
+                            entity_count = MAX_PLAYERS;
+                            add_entity(entity_parking_init(parking_lot, &font));
+                            for (int wi = 0; wi < MAX_WALLS; wi++)
+                                add_entity(entity_wall_init(walls[wi]));
                             goto done_park_check;
                         }
                     }
