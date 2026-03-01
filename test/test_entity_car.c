@@ -5,8 +5,8 @@
 
 void test_entity_car_init_sets_fields(void)
 {
-    Texture2D tex = {0};
-    Entity e = entity_car_init(2, (Vector2){150, 250}, GREEN, &tex);
+    Texture2D textures[1] = {{0}};
+    Entity e = entity_car_init(2, (Vector2){150, 250}, GREEN, textures, 1);
     TEST_ASSERT_EQUAL_INT(ENTITY_CAR, e.kind);
     TEST_ASSERT_TRUE(e.active);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 150.0f, e.position.x);
@@ -18,8 +18,8 @@ void test_entity_car_init_sets_fields(void)
 
 void test_entity_car_facing_angle_updates(void)
 {
-    Texture2D tex = {0};
-    Entity e = entity_car_init(0, (Vector2){400, 300}, RED, &tex);
+    Texture2D textures[1] = {{0}};
+    Entity e = entity_car_init(0, (Vector2){400, 300}, RED, textures, 1);
     InputState input = {0};
     input.left_stick.x = 1.0f;
     input.left_stick.y = 0.0f;
@@ -31,8 +31,8 @@ void test_entity_car_facing_angle_updates(void)
 
 void test_entity_car_get_collision_shape(void)
 {
-    Texture2D tex = {0};
-    Entity e = entity_car_init(0, (Vector2){200, 200}, RED, &tex);
+    Texture2D textures[1] = {{0}};
+    Entity e = entity_car_init(0, (Vector2){200, 200}, RED, textures, 1);
     CollisionShape cs;
     e.vtable->get_collision_shape(&e, &cs);
 

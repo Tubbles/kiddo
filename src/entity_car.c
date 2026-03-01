@@ -29,11 +29,15 @@ static void car_update(Entity *e, InputState input, float dt)
 
     e->car.facing_angle = angle_from_stick(input.left_stick,
                                             e->car.facing_angle);
+
+    /* Cycle car texture on button press */
+    if (input.buttons[1] && e->car.tex_count > 0)
+        e->car.tex_index = (e->car.tex_index + 1) % e->car.tex_count;
 }
 
 static void car_render(const Entity *e)
 {
-    Texture2D *tex = e->car.tex;
+    Texture2D *tex = &e->car.textures[e->car.tex_index];
     float car_scale = CAR_SIZE / (float)tex->width;
     Rectangle src = {0, 0, (float)tex->width, (float)tex->height};
     float dw = (float)tex->width * car_scale;
@@ -60,7 +64,8 @@ static const EntityVTable car_vtable = {
     .get_collision_shape = car_get_collision_shape,
 };
 
-Entity entity_car_init(int gamepad_id, Vector2 pos, Color color, Texture2D *tex)
+Entity entity_car_init(int gamepad_id, Vector2 pos, Color color,
+                       Texture2D *textures, int tex_count)
 {
     Entity e = {0};
     e.kind = ENTITY_CAR;
@@ -72,6 +77,8 @@ Entity entity_car_init(int gamepad_id, Vector2 pos, Color color, Texture2D *tex)
     e.color = color;
     e.gamepad_id = gamepad_id;
     e.car.facing_angle = 0.0f;
-    e.car.tex = tex;
+    e.car.textures = textures;
+    e.car.tex_count = tex_count;
+    e.car.tex_index = 0;
     return e;
 }

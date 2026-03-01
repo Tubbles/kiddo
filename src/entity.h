@@ -32,7 +32,7 @@ struct Entity {
     int gamepad_id;
     union {
         struct { ShapeKind shape; } shape;
-        struct { float facing_angle; Texture2D *tex; } car;
+        struct { float facing_angle; Texture2D *textures; int tex_count; int tex_index; } car;
         struct { Rectangle rect; } wall;
         struct { Rectangle rect; Font *font; } parking;
     };

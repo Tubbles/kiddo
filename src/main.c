@@ -172,7 +172,8 @@ static void reset_entities_free_play(void)
     }
 }
 
-static void reset_entities_park(Texture2D *car_tex, Font *font,
+static void reset_entities_park(Texture2D *car_textures, int tex_count,
+                                Font *font,
                                 Rectangle parking_lot, Rectangle *walls)
 {
     entity_count = 0;
@@ -180,7 +181,7 @@ static void reset_entities_park(Texture2D *car_tex, Font *font,
     /* Player cars (indices 0..MAX_PLAYERS-1) */
     for (int i = 0; i < MAX_PLAYERS; i++) {
         Entity e = entity_car_init(i, player_start_pos(i),
-                                   PLAYER_COLORS[i], car_tex);
+                                   PLAYER_COLORS[i], car_textures, tex_count);
         e.active = (i == 0);
         add_entity(e);
     }
@@ -215,8 +216,23 @@ int main(void)
     Font font = LoadFontEx("assets/Fredoka.ttf", 120, NULL, 0);
     SetTextureFilter(font.texture, TEXTURE_FILTER_BILINEAR);
 
-    Texture2D car_tex = LoadTexture("assets/taxi.png");
-    SetTextureFilter(car_tex, TEXTURE_FILTER_BILINEAR);
+    const char *car_tex_paths[] = {
+        "assets/taxi.png",
+        "assets/audi.png",
+        "assets/police.png",
+        "assets/ambulance.png",
+        "assets/mini_truck.png",
+        "assets/truck.png",
+        "assets/black_viper.png",
+        "assets/mini_van.png",
+        "assets/car.png",
+    };
+    #define CAR_TEX_COUNT ((int)(sizeof(car_tex_paths) / sizeof(car_tex_paths[0])))
+    Texture2D car_textures[CAR_TEX_COUNT];
+    for (int i = 0; i < CAR_TEX_COUNT; i++) {
+        car_textures[i] = LoadTexture(car_tex_paths[i]);
+        SetTextureFilter(car_textures[i], TEXTURE_FILTER_BILINEAR);
+    }
 
     input_load_mappings("assets/gamecontrollerdb.txt");
     SetTargetFPS(60);
@@ -376,7 +392,7 @@ int main(void)
                 if (game_mode == MODE_PARK) {
                     parking_lot = randomize_parking_lot();
                     randomize_walls(walls, MAX_WALLS, parking_lot);
-                    reset_entities_park(&car_tex, &font, parking_lot, walls);
+                    reset_entities_park(car_textures, CAR_TEX_COUNT, &font, parking_lot, walls);
                 } else {
                     reset_entities_free_play();
                 }
@@ -446,7 +462,8 @@ int main(void)
                                                             PLAYER_SHAPES[i], PLAYER_COLORS[i]);
                         } else {
                             entities[i] = entity_car_init(i, player_start_pos(i),
-                                                          PLAYER_COLORS[i], &car_tex);
+                                                          PLAYER_COLORS[i],
+                                                          car_textures, CAR_TEX_COUNT);
                         }
                     }
                     inputs[i] = input_read(i);
@@ -764,7 +781,8 @@ int main(void)
 quit:
     dzlog_info("exiting game loop (frame=%d t=%.1fs)", frame, elapsed);
     particles_free(&particles);
-    UnloadTexture(car_tex);
+    for (int i = 0; i < CAR_TEX_COUNT; i++)
+        UnloadTexture(car_textures[i]);
     UnloadFont(font);
     audio_shutdown();
     CloseWindow();
