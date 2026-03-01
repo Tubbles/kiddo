@@ -250,8 +250,9 @@ int main(void)
     bool debug_visible = false;
     bool prev_colliding[MAX_PLAYERS][MAX_PLAYERS] = {{false}};
 
-    GameScene scene = SCENE_PLAYING;
+    GameScene scene = SCENE_MENU;
     GameMode game_mode = MODE_FREE_PLAY;
+    bool game_started = false;
     int menu_selection = 0;
     bool prev_stick_up = false;
     bool prev_stick_down = false;
@@ -375,7 +376,26 @@ int main(void)
             if (menu_selection >= MENU_ITEM_COUNT)
                 menu_selection = 0;
 
-            /* Confirm selection */
+            /* Resume current game: Start or right-face-button (back) */
+            bool resume = false;
+            if (game_started) {
+                for (int i = 0; i < MAX_PLAYERS; i++) {
+                    if (start_pressed_solo(i))
+                        resume = true;
+                    if (IsGamepadAvailable(i) &&
+                        IsGamepadButtonPressed(i, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT))
+                        resume = true;
+                }
+                if (IsKeyPressed(KEY_ESCAPE))
+                    resume = true;
+            }
+            if (resume) {
+                dzlog_info("menu: resuming game");
+                log_ring_push("menu: resuming");
+                scene = SCENE_PLAYING;
+            }
+
+            /* Confirm selection — start a new game */
             bool confirmed = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER);
             for (int i = 0; i < MAX_PLAYERS; i++) {
                 if (IsGamepadAvailable(i) &&
@@ -396,12 +416,25 @@ int main(void)
                 } else {
                     reset_entities_free_play();
                 }
+                game_started = true;
                 scene = SCENE_PLAYING;
             }
 
             /* --- Menu rendering --- */
             BeginDrawing();
             render_background();
+
+            /* Draw paused game underneath the menu overlay */
+            if (game_started) {
+                for (int i = 0; i < entity_count; i++) {
+                    if (!entities[i].active) continue;
+                    if (entities[i].vtable->render)
+                        entities[i].vtable->render(&entities[i]);
+                }
+                /* Dim overlay */
+                DrawRectangle(0, 0, screen_width, screen_height,
+                              (Color){0, 0, 0, 120});
+            }
 
             const char *title = "Kiddo";
             float title_size = 120.0f;
